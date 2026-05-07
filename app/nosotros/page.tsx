@@ -1,4 +1,15 @@
-export default function Nosotros() {
+async function getNosotrosData() {
+  return {
+    titulo: 'Diseño con identidad propia',
+    descripcion: 'Finalook Studio nació de la necesidad de crear prendas que combinen la estética del denim con un diseño editorial contemporáneo. Cada pieza es confeccionada de forma artesanal, pensada para durar.',
+    fundacion: '2024',
+    pais: 'Argentina'
+  };
+}
+
+export default async function Nosotros() {
+  const data = await getNosotrosData();
+
   return (
     <main style={{ background: '#080808', minHeight: '100vh', padding: '4rem 2rem', fontFamily: 'sans-serif' }}>
       <header style={{ marginBottom: '3rem', borderBottom: '1px solid rgba(255,255,255,0.07)', paddingBottom: '1.5rem' }}>
@@ -12,12 +23,13 @@ export default function Nosotros() {
           Nosotros
         </p>
         <h2 style={{ fontFamily: 'serif', fontSize: '2.5rem', fontWeight: 300, color: '#F2EDE4', marginBottom: '2rem', fontStyle: 'italic' }}>
-          Diseño con identidad propia
+          {data.titulo}
         </h2>
-        <p style={{ color: 'rgba(242,237,228,0.55)', lineHeight: 1.8, fontSize: '0.9rem' }}>
-          Finalook Studio nació de la necesidad de crear prendas que combinen
-          la estética del denim con un diseño editorial contemporáneo.
-          Cada pieza es confeccionada de forma artesanal, pensada para durar.
+        <p style={{ color: 'rgba(242,237,228,0.55)', lineHeight: 1.8, fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+          {data.descripcion}
+        </p>
+        <p style={{ color: '#6B8EB5', fontSize: '0.7rem', letterSpacing: '0.2em' }}>
+          Fundada en {data.fundacion} · {data.pais}
         </p>
 
         <a href="/" style={{
