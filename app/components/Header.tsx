@@ -7,6 +7,14 @@ export default function Header() {
       <p style={{ color: 'rgba(242,237,228,0.55)', fontSize: '0.65rem', letterSpacing: '0.3em', marginTop: '0.5rem' }}>
         DROP 01 — 2026
       </p>
+      <nav style={{ marginTop: '1.5rem', display: 'flex', gap: '2rem' }}>
+        <a href="/" style={{ color: 'rgba(242,237,228,0.55)', fontSize: '0.6rem', letterSpacing: '0.25em', textTransform: 'uppercase', textDecoration: 'none' }}>
+          Colección
+        </a>
+        <a href="/nosotros" style={{ color: 'rgba(242,237,228,0.55)', fontSize: '0.6rem', letterSpacing: '0.25em', textTransform: 'uppercase', textDecoration: 'none' }}>
+          Nosotros
+        </a>
+      </nav>
     </header>
   );
 }
