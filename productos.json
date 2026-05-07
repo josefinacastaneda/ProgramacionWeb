@@ -1,0 +1,35 @@
+[
+  {
+    "id": "camisa-oversize",
+    "nombre": "Camisa Oversize",
+    "categoria": "camisas",
+    "precio": 38000,
+    "imagenes": ["img/camisa_oversize.jpg"],
+    "talles": ["S","M","L","XL"],
+    "descripcion": "Camisa oversize de denim claro con bolsillo delantero.",
+    "material": "Denim claro",
+    "badge": null
+  },
+  {
+    "id": "vestido-fina",
+    "nombre": "Vestido Fina",
+    "categoria": "vestidos",
+    "precio": 45000,
+    "imagenes": ["img/vestido_fina.jpg"],
+    "talles": ["S","M","L"],
+    "descripcion": "Vestido midi de denim con bordados artesanales.",
+    "material": "Denim premium bordado",
+    "badge": "Star piece"
+  },
+  {
+    "id": "top-halter",
+    "nombre": "Top Halter",
+    "categoria": "tops",
+    "precio": 22000,
+    "imagenes": ["img/top_halter.jpg"],
+    "talles": ["S","M","L"],
+    "descripcion": "Espalda descubierta con nudo frontal.",
+    "material": "Denim liviano",
+    "badge": null
+  }
+]
