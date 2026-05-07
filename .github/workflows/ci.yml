@@ -1,0 +1,24 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Validar estructura
+        run: |
+          echo "Verificando que index.html exista en el repositorio..."
+          if [ -f index.html ]; then
+            echo "¡index.html encontrado con éxito!"
+          else
+            echo "Error: No se encontró index.html"
+            exit 1
+          fi
