@@ -1,13 +1,91 @@
 [
   {
-    "id": "camisa-oversize",
-    "nombre": "Camisa Oversize",
+    "id": "camisa-kala",
+    "nombre": "Camisa Kala",
     "categoria": "camisas",
-    "precio": 38000,
-    "imagenes": ["img/camisa_oversize.jpg"],
-    "talles": ["S","M","L","XL"],
-    "descripcion": "Camisa oversize de denim claro con bolsillo delantero.",
-    "material": "Denim claro",
+    "precio": 35000,
+    "imagenes": ["/img/camisa_kala.jpg", "/img/camisa_kala2.jpg", "/img/camisa_kala3.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Camisa de denim lavado con corte recto y costuras reforzadas. Cierre con botones nacarados.",
+    "material": "100% denim lavado",
+    "badge": "Novedad"
+  },
+  {
+    "id": "top-amelie",
+    "nombre": "Top Amelie",
+    "categoria": "tops",
+    "precio": 28000,
+    "imagenes": ["/img/top_amelie.jpg", "/img/top_amelie2.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Top cropped de denim suave con terminaciones a mano. Corte asimétrico en el dobladillo.",
+    "material": "Denim elastizado",
+    "badge": null
+  },
+  {
+    "id": "top-asimetrico",
+    "nombre": "Top Asimétrico",
+    "categoria": "tops",
+    "precio": 25000,
+    "imagenes": ["/img/top_asimetrico_blanco.jpg", "/img/top_asimetrico_blanco2.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Un solo hombro expuesto, escote en V y nudo lateral ajustable. Dos colores disponibles.",
+    "material": "Denim suave",
+    "badge": "2 colores",
+    "colores": [
+      {
+        "nombre": "Blanco",
+        "hex": "#FFFFFF",
+        "imagenes": ["/img/top_asimetrico_blanco.jpg", "/img/top_asimetrico_blanco2.jpg"]
+      },
+      {
+        "nombre": "Salmón",
+        "hex": "#FA8072",
+        "imagenes": ["/img/top_asimetrico_salmon.jpg", "/img/top_asimetrico_salmon2.jpg"]
+      }
+    ]
+  },
+  {
+    "id": "top-halter",
+    "nombre": "Top Halter",
+    "categoria": "tops",
+    "precio": 22000,
+    "imagenes": ["/img/top_halter.jpg", "/img/top_halter2.jpg", "/img/top_halter3.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Espalda descubierta con nudo frontal. Tiras ajustables al cuello. Ideal para clima cálido.",
+    "material": "Denim liviano",
+    "badge": null
+  },
+  {
+    "id": "top-kim",
+    "nombre": "Top Kim",
+    "categoria": "tops",
+    "precio": 30000,
+    "imagenes": ["/img/top_kim.jpg", "/img/top_kim2.jpg", "/img/top_kim3.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Top estructurado de inspiración vintage con detalles en las costuras laterales.",
+    "material": "Denim rígido",
+    "badge": "Destacado"
+  },
+  {
+    "id": "top-mara",
+    "nombre": "Top Mara",
+    "categoria": "tops",
+    "precio": 27000,
+    "imagenes": ["/img/top_mara.jpg", "/img/top_mara2.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Corte recto con bordado artesanal en el pecho. Confeccionado pieza por pieza.",
+    "material": "Denim bordado",
+    "badge": null
+  },
+  {
+    "id": "top-nudo",
+    "nombre": "Top Nudo",
+    "categoria": "tops",
+    "precio": 24000,
+    "imagenes": ["/img/top_nudo.jpg", "/img/top_nudo2.jpg", "/img/top_nudo3.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Nudo frontal ajustable con escote en V pronunciado. Stretch para mayor comodidad.",
+    "material": "Denim stretch",
     "badge": null
   },
   {
@@ -15,21 +93,10 @@
     "nombre": "Vestido Fina",
     "categoria": "vestidos",
     "precio": 45000,
-    "imagenes": ["img/vestido_fina.jpg"],
-    "talles": ["S","M","L"],
-    "descripcion": "Vestido midi de denim con bordados artesanales.",
+    "imagenes": ["/img/vestido_fina.jpg", "/img/vestido_fina2.jpg", "/img/vestido_fina3.jpg"],
+    "talles": ["S", "M", "L"],
+    "descripcion": "Vestido midi de denim con bordados artesanales en el dobladillo. La pieza estrella del Drop 01.",
     "material": "Denim premium bordado",
     "badge": "Star piece"
-  },
-  {
-    "id": "top-halter",
-    "nombre": "Top Halter",
-    "categoria": "tops",
-    "precio": 22000,
-    "imagenes": ["img/top_halter.jpg"],
-    "talles": ["S","M","L"],
-    "descripcion": "Espalda descubierta con nudo frontal.",
-    "material": "Denim liviano",
-    "badge": null
   }
 ]
