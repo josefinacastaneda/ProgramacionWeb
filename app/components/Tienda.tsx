@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Producto,
   type ColorVariante,
@@ -24,6 +24,22 @@ interface CartItem {
 interface FavItem {
   producto: Producto;
   imgSrc: string;
+}
+interface Resena {
+  nombre: string;
+  estrellas: number;
+  comentario: string;
+  fecha: string;
+}
+
+// Mezcla un array sin mutar el original (para productos relacionados).
+function mezclar<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 type Orden = '' | 'asc' | 'desc';
@@ -91,6 +107,54 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const [calcPais, setCalcPais] = useState('');
   const [calcResultado, setCalcResultado] = useState<string | null>(null);
   const [comprando, setComprando] = useState(false);
+
+  // ── Checkout: datos del comprador ──
+  const [checkoutAbierto, setCheckoutAbierto] = useState(false);
+  const [comprador, setComprador] = useState({
+    nombre: '',
+    email: '',
+    telefono: '',
+    calle: '',
+    numero: '',
+    ciudad: '',
+    provincia: '',
+    cp: '',
+  });
+
+  // ── Envío dinámico ──
+  const [pais, setPais] = useState<'argentina' | 'internacional'>('argentina');
+
+  // ── Cupón de descuento ──
+  const [cuponInput, setCuponInput] = useState('');
+  const [cuponAplicado, setCuponAplicado] = useState<{ codigo: string; descuento: number } | null>(null);
+  const [cuponError, setCuponError] = useState('');
+  const [aplicandoCupon, setAplicandoCupon] = useState(false);
+
+  // ── Stock por talle (en memoria) ──
+  const [stockMap, setStockMap] = useState<Record<string, Record<string, number>>>(() => {
+    const m: Record<string, Record<string, number>> = {};
+    productos.forEach((p) => {
+      if (p.stock) m[p.id] = { ...p.stock };
+    });
+    return m;
+  });
+
+  // ── Social proof (personas viendo) ──
+  const [viendoAhora, setViendoAhora] = useState(4);
+
+  // ── Guía de talles ──
+  const [guiaAbierta, setGuiaAbierta] = useState(false);
+
+  // ── Programa de referidos ──
+  const [refSuffix, setRefSuffix] = useState('');
+
+  // ── Reseñas del producto en el modal ──
+  const [resenas, setResenas] = useState<Resena[]>([]);
+  const [reseNombre, setReseNombre] = useState('');
+  const [reseEstrellas, setReseEstrellas] = useState(0);
+  const [reseHover, setReseHover] = useState(0);
+  const [reseComentario, setReseComentario] = useState('');
+  const [enviandoResena, setEnviandoResena] = useState(false);
 
   // ── Refs ──
   const heroTituloRef = useRef<HTMLHeadingElement>(null);
@@ -175,18 +239,21 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // Bloquear scroll del body con overlays abiertos + tecla Escape
   // ────────────────────────────────────────────────
   useEffect(() => {
-    const bloqueado = modalProd !== null || sidebarActivo !== null || searchOpen;
+    const bloqueado =
+      modalProd !== null || sidebarActivo !== null || searchOpen || checkoutAbierto || guiaAbierta;
     document.body.style.overflow = bloqueado ? 'hidden' : '';
     return () => {
       document.body.style.overflow = '';
     };
-  }, [modalProd, sidebarActivo, searchOpen]);
+  }, [modalProd, sidebarActivo, searchOpen, checkoutAbierto, guiaAbierta]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setModalProd(null);
         setSidebarActivo(null);
+        setCheckoutAbierto(false);
+        setGuiaAbierta(false);
         cerrarSearch();
       }
     };
@@ -244,7 +311,21 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     mostrarToast(`${prod.nombre} (${talle}) agregado`);
   }
   function removerDelCarrito(idx: number) {
+    const item = carrito[idx];
+    // Devolvemos la unidad al stock en memoria.
+    if (item?.talle && item.producto.stock) {
+      setStockMap((sm) => ({
+        ...sm,
+        [item.producto.id]: {
+          ...sm[item.producto.id],
+          [item.talle]: (sm[item.producto.id]?.[item.talle] ?? 0) + 1,
+        },
+      }));
+    }
     setCarrito((prev) => prev.filter((_, i) => i !== idx));
+  }
+  function stockDe(prod: Producto, talle: string) {
+    return stockMap[prod.id]?.[talle] ?? (prod.stock ? 0 : 99);
   }
   function agregarDesdeModal() {
     if (!modalProd) return;
@@ -252,15 +333,55 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       mostrarToast('Seleccioná un talle');
       return;
     }
+    if (stockDe(modalProd, modalTalle) <= 0) {
+      mostrarToast(`Talle ${modalTalle} agotado`);
+      return;
+    }
     const colorLabel = modalColor ? modalColor.nombre : null;
     const imgSrc = modalImgs[modalImgIdx] || modalProd.imagenes[0];
     agregarAlCarrito(modalProd, modalTalle, colorLabel, imgSrc);
+    // Decrementamos el stock en memoria.
+    if (modalProd.stock) {
+      const id = modalProd.id;
+      const talle = modalTalle;
+      setStockMap((sm) => ({
+        ...sm,
+        [id]: { ...sm[id], [talle]: (sm[id]?.[talle] ?? 1) - 1 },
+      }));
+    }
     cerrarModal();
     setSidebarActivo('carrito');
   }
+  function setCampoComprador(campo: keyof typeof comprador, valor: string) {
+    setComprador((prev) => ({ ...prev, [campo]: valor }));
+  }
+  // Habilita el pago sólo con nombre, email válido y dirección completa.
+  const emailCompradorValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(comprador.email.trim());
+  const checkoutValido =
+    comprador.nombre.trim() !== '' &&
+    emailCompradorValido &&
+    comprador.calle.trim() !== '' &&
+    comprador.numero.trim() !== '' &&
+    comprador.ciudad.trim() !== '' &&
+    comprador.provincia.trim() !== '' &&
+    comprador.cp.trim() !== '';
+
+  function abrirCheckout() {
+    if (carrito.length === 0) {
+      mostrarToast('Tu carrito está vacío');
+      return;
+    }
+    setSidebarActivo(null);
+    setCheckoutAbierto(true);
+  }
+
   async function checkout() {
     if (carrito.length === 0) {
       mostrarToast('Tu carrito está vacío');
+      return;
+    }
+    if (!checkoutValido) {
+      mostrarToast('Completá tus datos de envío para continuar');
       return;
     }
     setComprando(true);
@@ -270,11 +391,12 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
         title: it.color ? `${it.producto.nombre} (${it.color})` : it.producto.nombre,
         quantity: 1,
         unit_price: it.producto.precio,
+        talle: it.talle,
       }));
       const res = await fetch('/api/create-preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items }),
+        body: JSON.stringify({ items, comprador, pais, cupon: cuponAplicado?.codigo }),
       });
       const data = await res.json();
       if (!res.ok || !data.init_point) {
@@ -289,6 +411,177 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     }
   }
   const carritoTotal = carrito.reduce((acc, it) => acc + it.producto.precio, 0);
+
+  // ────────────────────────────────────────────────
+  // ENVÍO + CUPÓN + TOTAL
+  // ────────────────────────────────────────────────
+  const envioCosto = pais === 'argentina' ? 10000 : 20000;
+  const descuentoMonto = cuponAplicado
+    ? Math.round((carritoTotal * cuponAplicado.descuento) / 100)
+    : 0;
+  const totalFinal = carritoTotal - descuentoMonto + envioCosto;
+
+  async function aplicarCupon() {
+    const codigo = cuponInput.trim();
+    if (!codigo) return;
+    setAplicandoCupon(true);
+    setCuponError('');
+    try {
+      const res = await fetch('/api/cupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo }),
+      });
+      const data = await res.json();
+      if (data.valido) {
+        setCuponAplicado({ codigo: data.codigo, descuento: data.descuento });
+        setCuponError('');
+        mostrarToast(`Cupón ${data.codigo} aplicado (-${data.descuento}%)`);
+      } else {
+        setCuponAplicado(null);
+        setCuponError(data.error || 'Código inválido.');
+      }
+    } catch {
+      setCuponError('No se pudo validar el cupón.');
+    } finally {
+      setAplicandoCupon(false);
+    }
+  }
+  function quitarCupon() {
+    setCuponAplicado(null);
+    setCuponInput('');
+    setCuponError('');
+  }
+
+  // ────────────────────────────────────────────────
+  // REFERIDOS
+  // ────────────────────────────────────────────────
+  const referidoCodigo =
+    emailCompradorValido && refSuffix
+      ? (comprador.email.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 4) || 'fina') +
+        refSuffix
+      : '';
+
+  async function copiarReferido() {
+    if (!referidoCodigo) return;
+    try {
+      await navigator.clipboard.writeText(referidoCodigo);
+      mostrarToast('Código de referido copiado');
+    } catch {
+      mostrarToast('No se pudo copiar el código');
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // RESEÑAS
+  // ────────────────────────────────────────────────
+  const ratingPromedio = resenas.length
+    ? resenas.reduce((acc, r) => acc + r.estrellas, 0) / resenas.length
+    : 0;
+
+  async function publicarResena() {
+    if (!modalProd) return;
+    if (reseNombre.trim().length < 2) {
+      mostrarToast('Ingresá tu nombre');
+      return;
+    }
+    if (reseEstrellas < 1) {
+      mostrarToast('Elegí una calificación');
+      return;
+    }
+    if (reseComentario.trim().length < 10) {
+      mostrarToast('El comentario debe tener al menos 10 caracteres');
+      return;
+    }
+    setEnviandoResena(true);
+    try {
+      const res = await fetch('/api/resenas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: modalProd.id,
+          nombre: reseNombre.trim(),
+          estrellas: reseEstrellas,
+          comentario: reseComentario.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.resenas) {
+        setResenas(data.resenas);
+        setReseNombre('');
+        setReseEstrellas(0);
+        setReseHover(0);
+        setReseComentario('');
+        mostrarToast('¡Gracias por tu reseña!');
+      } else {
+        mostrarToast(data.error || 'No se pudo publicar la reseña');
+      }
+    } catch {
+      mostrarToast('No se pudo publicar la reseña');
+    } finally {
+      setEnviandoResena(false);
+    }
+  }
+
+  // ────────────────────────────────────────────────
+  // PRODUCTOS RELACIONADOS
+  // ────────────────────────────────────────────────
+  const relacionados = useMemo(() => {
+    if (!modalProd) return [] as Producto[];
+    const mismaCat = productos.filter(
+      (p) => p.categoria === modalProd.categoria && p.id !== modalProd.id,
+    );
+    const otros = productos.filter(
+      (p) => p.categoria !== modalProd.categoria && p.id !== modalProd.id,
+    );
+    return [...mezclar(mismaCat), ...mezclar(otros)].slice(0, 3);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalProd?.id, productos]);
+
+  // Social proof: número aleatorio 2-8 que cambia cada 30s.
+  useEffect(() => {
+    if (!modalProd) return;
+    const aleatorio = () => setViendoAhora(Math.floor(Math.random() * 7) + 2);
+    aleatorio();
+    const t = setInterval(aleatorio, 30000);
+    return () => clearInterval(t);
+  }, [modalProd]);
+
+  // Cargar reseñas del producto al abrir el modal.
+  useEffect(() => {
+    if (!modalProd) return;
+    setResenas([]);
+    setReseNombre('');
+    setReseEstrellas(0);
+    setReseHover(0);
+    setReseComentario('');
+    const id = modalProd.id;
+    fetch(`/api/resenas?id=${encodeURIComponent(id)}`)
+      .then((r) => r.json())
+      .then((d) => setResenas(d.resenas || []))
+      .catch(() => {});
+  }, [modalProd]);
+
+  // Generar el sufijo aleatorio del código de referido cuando el email es válido.
+  useEffect(() => {
+    if (emailCompradorValido && !refSuffix) {
+      setRefSuffix(String(Math.floor(1000 + Math.random() * 9000)));
+    }
+    if (!emailCompradorValido && refSuffix) {
+      setRefSuffix('');
+    }
+  }, [emailCompradorValido, refSuffix]);
+
+  // Persistir el código de referido generado.
+  useEffect(() => {
+    if (!referidoCodigo) return;
+    fetch('/api/referidos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo: referidoCodigo, email: comprador.email.trim() }),
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referidoCodigo]);
 
   // ────────────────────────────────────────────────
   // FAVORITOS
@@ -435,6 +728,20 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           </ul>
 
           <div className="nav-acciones">
+            <a
+              className="nav-icon-btn"
+              href="https://instagram.com/finalook.studio"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram de FINALOOK"
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" />
+                <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+              </svg>
+            </a>
+
             <button className="nav-icon-btn" onClick={abrirSearch} aria-label="Buscar productos">
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
                 <circle cx="11" cy="11" r="8" />
@@ -600,9 +907,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                           if (fb) fb.style.display = 'none';
                         }}
                       />
-                      <div className="img-fallback" aria-hidden="true">
-                        FK
-                      </div>
+                      <div className="img-fallback" aria-hidden="true" />
 
                       {prod.badge && <span className="producto-badge">{prod.badge}</span>}
 
@@ -847,6 +1152,20 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           <p className="footer-logo">
             {logoMain} <span className="studio">{logoStudio}</span>
           </p>
+          <a
+            className="footer-instagram"
+            href="https://instagram.com/finalook.studio"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Seguinos en Instagram"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+              <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" />
+              <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+            </svg>
+            <span>@finalook.studio</span>
+          </a>
           <p className="footer-copy">© 2026 {NOMBRE_TIENDA}. Drop 01. Todos los derechos reservados.</p>
         </div>
       </footer>
@@ -866,9 +1185,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                   if (fb) fb.style.display = 'flex';
                 }}
               />
-              <div className="img-fallback" aria-hidden="true">
-                FK
-              </div>
+              <div className="img-fallback" aria-hidden="true" />
               {modalImgs.length > 1 && (
                 <>
                   <button className="modal-arrow modal-arrow-prev" onClick={modalPrev} aria-label="Imagen anterior">
@@ -902,6 +1219,24 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
               <p className="modal-cat-label">{modalProd.categoria}</p>
               <h2 className="modal-nombre">{modalProd.nombre}</h2>
+
+              <p className="modal-viendo" aria-live="polite" key={viendoAhora}>
+                {viendoAhora} personas están viendo esto ahora
+              </p>
+
+              {resenas.length > 0 && (
+                <div className="modal-rating-resumen">
+                  <span className="estrellas-mostrar" aria-hidden="true">
+                    {'★★★★★'.slice(0, Math.round(ratingPromedio))}
+                    <span className="estrellas-vacias">{'★★★★★'.slice(Math.round(ratingPromedio))}</span>
+                  </span>
+                  <span className="modal-rating-num">
+                    {ratingPromedio.toFixed(1)} · {resenas.length}{' '}
+                    {resenas.length === 1 ? 'reseña' : 'reseñas'}
+                  </span>
+                </div>
+              )}
+
               <p className="modal-precio-display">{formatearPrecio(modalProd.precio)}</p>
               <p className="modal-descripcion">{modalProd.descripcion}</p>
               <p className="modal-material">Material: {modalProd.material}</p>
@@ -925,18 +1260,31 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               )}
 
               <div>
-                <span className="modal-label">Talle</span>
+                <div className="modal-talle-head">
+                  <span className="modal-label">Talle</span>
+                  <button type="button" className="guia-talles-link" onClick={() => setGuiaAbierta(true)}>
+                    Guía de talles
+                  </button>
+                </div>
                 <div className="modal-talles">
-                  {modalProd.talles.map((t) => (
-                    <button
-                      key={t}
-                      className={`modal-talle-btn${modalTalle === t ? ' seleccionado' : ''}`}
-                      aria-label={`Talle ${t}`}
-                      onClick={() => setModalTalle(t)}
-                    >
-                      {t}
-                    </button>
-                  ))}
+                  {modalProd.talles.map((t) => {
+                    const st = stockDe(modalProd, t);
+                    const agotado = st <= 0;
+                    const ultimas = st > 0 && st <= 3;
+                    return (
+                      <div key={t} className="modal-talle-col">
+                        <button
+                          className={`modal-talle-btn${modalTalle === t ? ' seleccionado' : ''}${agotado ? ' agotado' : ''}`}
+                          aria-label={`Talle ${t}${agotado ? ' (agotado)' : ''}`}
+                          disabled={agotado}
+                          onClick={() => setModalTalle(t)}
+                        >
+                          {t}
+                        </button>
+                        {ultimas && <span className="talle-ultimas">Últimas unidades</span>}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -953,6 +1301,88 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                   Guardar
                 </button>
               </div>
+
+              {/* ── Reseñas ── */}
+              <div className="modal-resenas">
+                <h3 className="modal-seccion-titulo">Reseñas</h3>
+                {resenas.length === 0 ? (
+                  <p className="modal-resenas-vacio">Todavía no hay reseñas. Sé la primera en opinar.</p>
+                ) : (
+                  <div className="resenas-lista">
+                    {resenas.map((r, i) => (
+                      <div className="resena-item" key={i}>
+                        <div className="resena-top">
+                          <span className="resena-nombre">{r.nombre}</span>
+                          <span className="resena-fecha">{r.fecha}</span>
+                        </div>
+                        <span className="estrellas-mostrar resena-estrellas" aria-label={`${r.estrellas} de 5`}>
+                          {'★★★★★'.slice(0, r.estrellas)}
+                          <span className="estrellas-vacias">{'★★★★★'.slice(r.estrellas)}</span>
+                        </span>
+                        <p className="resena-comentario">{r.comentario}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="resena-form">
+                  <span className="modal-label">Dejá tu reseña</span>
+                  <input
+                    className="checkout-input"
+                    type="text"
+                    placeholder="Tu nombre"
+                    value={reseNombre}
+                    onChange={(e) => setReseNombre(e.target.value)}
+                  />
+                  <div className="resena-estrellas-input" role="radiogroup" aria-label="Calificación">
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        type="button"
+                        key={n}
+                        className={`estrella-btn${(reseHover || reseEstrellas) >= n ? ' activa' : ''}`}
+                        aria-label={`${n} estrella${n > 1 ? 's' : ''}`}
+                        onMouseEnter={() => setReseHover(n)}
+                        onMouseLeave={() => setReseHover(0)}
+                        onClick={() => setReseEstrellas(n)}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    className="checkout-input resena-textarea"
+                    rows={3}
+                    placeholder="Contanos qué te pareció (mínimo 10 caracteres)"
+                    value={reseComentario}
+                    onChange={(e) => setReseComentario(e.target.value)}
+                  />
+                  <button className="btn-publicar-resena" onClick={publicarResena} disabled={enviandoResena}>
+                    {enviandoResena ? 'Publicando…' : 'Publicar reseña'}
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Productos relacionados ── */}
+              {relacionados.length > 0 && (
+                <div className="modal-relacionados">
+                  <h3 className="modal-seccion-titulo">También te puede interesar</h3>
+                  <div className="relacionados-grid">
+                    {relacionados.map((rp) => (
+                      <button className="relacionado-card" key={rp.id} onClick={() => abrirModal(rp)}>
+                        <div className="relacionado-img">
+                          <img
+                            src={rp.imagenes[0]}
+                            alt={rp.nombre}
+                            onError={(e) => (e.currentTarget.style.display = 'none')}
+                          />
+                        </div>
+                        <span className="relacionado-nombre">{rp.nombre}</span>
+                        <span className="relacionado-precio">{formatearPrecio(rp.precio)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1005,9 +1435,230 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <span className="sidebar-total-label">Total</span>
             <span className="sidebar-total-precio">{formatearPrecio(carritoTotal)}</span>
           </div>
-          <button className="btn-checkout" onClick={checkout} disabled={comprando}>
+          <button className="btn-checkout" onClick={abrirCheckout} disabled={comprando}>
+            Continuar al pago
+          </button>
+        </div>
+      </aside>
+
+      {/* ═══ CHECKOUT: datos de envío ═══ */}
+      <div
+        className={`checkout-overlay${checkoutAbierto ? ' abierto' : ''}`}
+        onClick={() => {
+          if (!comprando) setCheckoutAbierto(false);
+        }}
+      />
+      <aside
+        className={`checkout-panel${checkoutAbierto ? ' abierto' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Datos de envío"
+      >
+        <div className="sidebar-header">
+          <h2 className="sidebar-titulo">Datos de envío</h2>
+          <button className="sidebar-cerrar" onClick={() => setCheckoutAbierto(false)} aria-label="Cerrar checkout">
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="checkout-body">
+          <p className="checkout-intro">
+            Completá tus datos para finalizar la compra de forma segura con MercadoPago.
+          </p>
+
+          <div className="checkout-field">
+            <label className="checkout-label" htmlFor="co-nombre">Nombre completo *</label>
+            <input
+              id="co-nombre"
+              className="checkout-input"
+              type="text"
+              autoComplete="name"
+              placeholder="Tu nombre y apellido"
+              value={comprador.nombre}
+              onChange={(e) => setCampoComprador('nombre', e.target.value)}
+            />
+          </div>
+
+          <div className="checkout-field">
+            <label className="checkout-label" htmlFor="co-email">Email *</label>
+            <input
+              id="co-email"
+              className="checkout-input"
+              type="email"
+              autoComplete="email"
+              placeholder="tu@email.com"
+              value={comprador.email}
+              onChange={(e) => setCampoComprador('email', e.target.value)}
+            />
+          </div>
+
+          {referidoCodigo && (
+            <div className="referido-box">
+              <span className="referido-label">Tu código de referido</span>
+              <div className="referido-codigo-row">
+                <span className="referido-codigo">{referidoCodigo}</span>
+                <button type="button" className="referido-copiar" onClick={copiarReferido}>
+                  Copiar código
+                </button>
+              </div>
+              <p className="referido-texto">
+                Compartí tu código y tu amigo obtiene 10% off en su primera compra.
+              </p>
+            </div>
+          )}
+
+          <div className="checkout-field">
+            <label className="checkout-label" htmlFor="co-tel">
+              Teléfono <span className="checkout-opcional">(opcional)</span>
+            </label>
+            <input
+              id="co-tel"
+              className="checkout-input"
+              type="tel"
+              autoComplete="tel"
+              placeholder="+54 9 11 0000 0000"
+              value={comprador.telefono}
+              onChange={(e) => setCampoComprador('telefono', e.target.value)}
+            />
+          </div>
+
+          <div className="checkout-field">
+            <label className="checkout-label" htmlFor="co-pais">País *</label>
+            <select
+              id="co-pais"
+              className="checkout-input"
+              value={pais}
+              onChange={(e) => setPais(e.target.value === 'internacional' ? 'internacional' : 'argentina')}
+            >
+              <option value="argentina">Argentina — envío {formatearPrecio(10000)}</option>
+              <option value="internacional">Internacional — envío {formatearPrecio(20000)}</option>
+            </select>
+          </div>
+
+          <div className="checkout-sep">Dirección de envío</div>
+
+          <div className="checkout-row">
+            <div className="checkout-field" style={{ flex: 2 }}>
+              <label className="checkout-label" htmlFor="co-calle">Calle *</label>
+              <input
+                id="co-calle"
+                className="checkout-input"
+                type="text"
+                autoComplete="address-line1"
+                value={comprador.calle}
+                onChange={(e) => setCampoComprador('calle', e.target.value)}
+              />
+            </div>
+            <div className="checkout-field" style={{ flex: 1 }}>
+              <label className="checkout-label" htmlFor="co-numero">Número *</label>
+              <input
+                id="co-numero"
+                className="checkout-input"
+                type="text"
+                value={comprador.numero}
+                onChange={(e) => setCampoComprador('numero', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="checkout-field">
+            <label className="checkout-label" htmlFor="co-ciudad">Ciudad *</label>
+            <input
+              id="co-ciudad"
+              className="checkout-input"
+              type="text"
+              autoComplete="address-level2"
+              value={comprador.ciudad}
+              onChange={(e) => setCampoComprador('ciudad', e.target.value)}
+            />
+          </div>
+
+          <div className="checkout-row">
+            <div className="checkout-field" style={{ flex: 2 }}>
+              <label className="checkout-label" htmlFor="co-prov">Provincia *</label>
+              <input
+                id="co-prov"
+                className="checkout-input"
+                type="text"
+                autoComplete="address-level1"
+                value={comprador.provincia}
+                onChange={(e) => setCampoComprador('provincia', e.target.value)}
+              />
+            </div>
+            <div className="checkout-field" style={{ flex: 1 }}>
+              <label className="checkout-label" htmlFor="co-cp">Código postal *</label>
+              <input
+                id="co-cp"
+                className="checkout-input"
+                type="text"
+                autoComplete="postal-code"
+                value={comprador.cp}
+                onChange={(e) => setCampoComprador('cp', e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="checkout-sep">Cupón de descuento</div>
+          <div className="cupon-row">
+            <input
+              className="checkout-input"
+              type="text"
+              placeholder="Ingresá tu código"
+              value={cuponInput}
+              onChange={(e) => {
+                setCuponInput(e.target.value);
+                setCuponError('');
+              }}
+              disabled={!!cuponAplicado}
+            />
+            {cuponAplicado ? (
+              <button type="button" className="cupon-btn cupon-quitar" onClick={quitarCupon}>
+                Quitar
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="cupon-btn"
+                onClick={aplicarCupon}
+                disabled={aplicandoCupon || !cuponInput.trim()}
+              >
+                {aplicandoCupon ? '…' : 'Aplicar'}
+              </button>
+            )}
+          </div>
+          {cuponAplicado && (
+            <p className="cupon-ok">
+              ✓ Cupón {cuponAplicado.codigo} aplicado: -{cuponAplicado.descuento}%
+            </p>
+          )}
+          {cuponError && <p className="cupon-error">{cuponError}</p>}
+        </div>
+        <div className="sidebar-footer">
+          <div className="checkout-desglose">
+            <div className="desglose-fila">
+              <span>Subtotal productos</span>
+              <span>{formatearPrecio(carritoTotal)}</span>
+            </div>
+            {descuentoMonto > 0 && (
+              <div className="desglose-fila desglose-descuento">
+                <span>Descuento ({cuponAplicado?.descuento}%)</span>
+                <span>-{formatearPrecio(descuentoMonto)}</span>
+              </div>
+            )}
+            <div className="desglose-fila">
+              <span>Envío ({pais === 'argentina' ? 'Argentina' : 'Internacional'})</span>
+              <span>{formatearPrecio(envioCosto)}</span>
+            </div>
+          </div>
+          <div className="sidebar-total">
+            <span className="sidebar-total-label">Total</span>
+            <span className="sidebar-total-precio">{formatearPrecio(totalFinal)}</span>
+          </div>
+          <button className="btn-checkout" onClick={checkout} disabled={comprando || !checkoutValido}>
             {comprando ? 'Redirigiendo…' : 'Pagar con MercadoPago'}
           </button>
+          {!checkoutValido && (
+            <p className="checkout-aviso">Completá nombre, email y dirección para habilitar el pago.</p>
+          )}
         </div>
       </aside>
 
@@ -1116,6 +1767,56 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           </div>
         )}
       </div>
+
+      {/* ═══ GUÍA DE TALLES ═══ */}
+      <div
+        className={`guia-overlay${guiaAbierta ? ' abierto' : ''}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Guía de talles"
+        onClick={() => setGuiaAbierta(false)}
+      >
+        {guiaAbierta && (
+          <div className="guia-popup" onClick={(e) => e.stopPropagation()}>
+            <div className="guia-header">
+              <h2 className="guia-titulo">Guía de talles</h2>
+              <button className="sidebar-cerrar" onClick={() => setGuiaAbierta(false)} aria-label="Cerrar guía de talles">
+                <CloseIcon />
+              </button>
+            </div>
+            <table className="guia-tabla">
+              <thead>
+                <tr>
+                  <th>Talle</th>
+                  <th>Cintura</th>
+                  <th>Cadera</th>
+                  <th>Largo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>S</td><td>68-72cm</td><td>90-94cm</td><td>98cm</td></tr>
+                <tr><td>M</td><td>73-77cm</td><td>95-99cm</td><td>99cm</td></tr>
+                <tr><td>L</td><td>78-83cm</td><td>100-105cm</td><td>100cm</td></tr>
+                <tr><td>XL</td><td>84-90cm</td><td>106-112cm</td><td>101cm</td></tr>
+              </tbody>
+            </table>
+            <p className="guia-nota">Las medidas son aproximadas. Ante la duda, elegí el talle mayor.</p>
+          </div>
+        )}
+      </div>
+
+      {/* ═══ WHATSAPP FLOTANTE ═══ */}
+      <a
+        className="whatsapp-flotante"
+        href="https://wa.me/5491130742105?text=Hola!%20Vi%20tu%20tienda%20FINALOOK%20y%20tengo%20una%20consulta"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Escribinos por WhatsApp"
+      >
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.17-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51l-.57-.01c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.08.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2-1.41.25-.69.25-1.29.17-1.41-.07-.12-.27-.2-.57-.35zM12.04 21.5h-.01a9.5 9.5 0 01-4.83-1.32l-.35-.21-3.59.94.96-3.5-.23-.36a9.46 9.46 0 01-1.45-5.05c0-5.24 4.27-9.5 9.52-9.5 2.54 0 4.93.99 6.73 2.79a9.45 9.45 0 012.79 6.72c-.01 5.24-4.28 9.5-9.52 9.5zm8.1-17.6A11.42 11.42 0 0012.04.5C5.74.5.61 5.62.6 11.92c0 2.1.55 4.15 1.6 5.96L.5 23.5l5.77-1.51a11.42 11.42 0 005.76 1.47h.01c6.3 0 11.43-5.12 11.43-11.42 0-3.05-1.19-5.92-3.35-8.08z" />
+        </svg>
+      </a>
     </div>
   );
 }
