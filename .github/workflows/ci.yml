@@ -1,24 +1,33 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
-  build-and-test:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout del código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Validar estructura
-        run: |
-          echo "Verificando que index.html exista en el repositorio..."
-          if [ -f index.html ]; then
-            echo "¡index.html encontrado con éxito!"
-          else
-            echo "Error: No se encontró index.html"
-            exit 1
-          fi
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm install
+
+      - name: Build de Next.js
+        # Si el build falla, este paso devuelve un código != 0 y el pipeline falla.
+        run: npm run build
+        env:
+          # La home usa force-dynamic, así que el build NO consulta la base.
+          # Igual el cliente de Supabase se instancia al importar, por eso pasamos
+          # valores (secrets si existen, placeholders si no) para que no rompa.
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-service-role-key' }}
