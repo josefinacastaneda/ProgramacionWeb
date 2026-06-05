@@ -79,6 +79,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ── Estado general ──
   const [filtroActivo, setFiltroActivo] = useState('todos');
   const [sortActivo, setSortActivo] = useState<Orden>('');
+  const [navColCerrada, setNavColCerrada] = useState(false);
   const [vistaTres, setVistaTres] = useState(true);
   const [carrito, setCarrito] = useState<CartItem[]>([]);
   const [favoritos, setFavoritos] = useState<FavItem[]>([]);
@@ -638,9 +639,21 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     coleccionRef.current?.scrollIntoView({ behavior: 'smooth' });
   }
   function filtrarDesdeNav(cat: string) {
-    setFiltroActivo(cat);
-    scrollAColeccion();
+    // Notificamos vía evento para mantener el flujo desacoplado de la nav.
+    window.dispatchEvent(new CustomEvent('filtrar-categoria', { detail: cat }));
+    setNavColCerrada(true);
   }
+
+  // Aplica el filtro de categoría al recibir el evento desde la navbar.
+  useEffect(() => {
+    function onFiltrar(e: Event) {
+      const cat = (e as CustomEvent<string>).detail;
+      setFiltroActivo(cat);
+      scrollAColeccion();
+    }
+    window.addEventListener('filtrar-categoria', onFiltrar);
+    return () => window.removeEventListener('filtrar-categoria', onFiltrar);
+  }, []);
 
   // ────────────────────────────────────────────────
   // CALCULADORA DE ENVÍO
@@ -698,9 +711,13 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <li className="nav-item">
               <a href="#hero">Inicio</a>
             </li>
-            <li className="nav-item">
+            <li className="nav-item" onMouseLeave={() => setNavColCerrada(false)}>
               <a href="#coleccion">Colección</a>
-              <div className="nav-dropdown" role="menu" aria-label="Categorías">
+              <div
+                className={`nav-dropdown${navColCerrada ? ' col-cerrada' : ''}`}
+                role="menu"
+                aria-label="Categorías"
+              >
                 {categorias.map((c) => (
                   <a
                     key={c.value}
@@ -772,7 +789,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
         </nav>
       </header>
 
-      <main>
+      <main role="main">
         {/* ═══ HERO ═══ */}
         <section className="hero" id="hero" aria-label={`Hero – ${NOMBRE_TIENDA}`}>
           <div className="hero-bg" aria-hidden="true" />
@@ -895,7 +912,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                     >
                       <img
                         src={prod.imagenes[idx]}
-                        alt={prod.nombre}
+                        alt={`${prod.nombre} — ${prod.categoria} de la colección FINALOOK`}
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                           const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
@@ -1178,7 +1195,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               <img
                 key={`${modalProd.id}-${modalColor?.nombre ?? ''}-${modalImgIdx}`}
                 src={modalImgs[modalImgIdx]}
-                alt={modalProd.nombre}
+                alt={`${modalProd.nombre} — foto ${modalImgIdx + 1} de ${modalImgs.length}`}
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                   const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
