@@ -90,6 +90,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const [formEnviado, setFormEnviado] = useState(false);
   const [calcPais, setCalcPais] = useState('');
   const [calcResultado, setCalcResultado] = useState<string | null>(null);
+  const [comprando, setComprando] = useState(false);
 
   // ── Refs ──
   const heroTituloRef = useRef<HTMLHeadingElement>(null);
@@ -257,18 +258,34 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     cerrarModal();
     setSidebarActivo('carrito');
   }
-  function checkout() {
+  async function checkout() {
     if (carrito.length === 0) {
-      alert('Tu carrito está vacío. ¡Agregá alguna prenda primero!');
+      mostrarToast('Tu carrito está vacío');
       return;
     }
-    const nombre = prompt('¿Cuál es tu nombre para confirmar el pedido?');
-    if (nombre && nombre.trim() !== '') {
-      alert(`¡Gracias por tu compra, ${nombre.trim()}!\n${NOMBRE_TIENDA} te contactará pronto.`);
-      setCarrito([]);
-      setSidebarActivo(null);
-    } else {
-      alert('Necesitamos tu nombre para procesar el pedido.');
+    setComprando(true);
+    try {
+      const items = carrito.map((it) => ({
+        id: it.producto.id,
+        title: it.color ? `${it.producto.nombre} (${it.color})` : it.producto.nombre,
+        quantity: 1,
+        unit_price: it.producto.precio,
+      }));
+      const res = await fetch('/api/create-preference', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.init_point) {
+        throw new Error(data.error || 'Sin init_point');
+      }
+      // Redirige al checkout de MercadoPago
+      window.location.href = data.init_point;
+    } catch (err) {
+      console.error('Error al iniciar el pago:', err);
+      mostrarToast('No se pudo iniciar el pago. Revisá las credenciales de MercadoPago.');
+      setComprando(false);
     }
   }
   const carritoTotal = carrito.reduce((acc, it) => acc + it.producto.precio, 0);
@@ -988,8 +1005,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <span className="sidebar-total-label">Total</span>
             <span className="sidebar-total-precio">{formatearPrecio(carritoTotal)}</span>
           </div>
-          <button className="btn-checkout" onClick={checkout}>
-            Confirmar pedido
+          <button className="btn-checkout" onClick={checkout} disabled={comprando}>
+            {comprando ? 'Redirigiendo…' : 'Pagar con MercadoPago'}
           </button>
         </div>
       </aside>
