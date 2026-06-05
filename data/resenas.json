@@ -1,0 +1,44 @@
+{
+  "vestido-fina": [
+    {
+      "nombre": "Camila R.",
+      "estrellas": 5,
+      "comentario": "La pieza estrella sin dudas. El bordado es una locura y la tela cae perfecto. Me llegó en tiempo y forma.",
+      "fecha": "2026-04-12"
+    },
+    {
+      "nombre": "Martina G.",
+      "estrellas": 4,
+      "comentario": "Hermoso vestido, calidad impecable. Le bajo una estrella porque talla un poco chico, pedí un talle más.",
+      "fecha": "2026-05-03"
+    }
+  ],
+  "camisa-kala": [
+    {
+      "nombre": "Lucía P.",
+      "estrellas": 5,
+      "comentario": "El denim es de primera, las costuras reforzadas se notan. La uso con todo.",
+      "fecha": "2026-03-28"
+    },
+    {
+      "nombre": "Sofía M.",
+      "estrellas": 4,
+      "comentario": "Muy buena calidad y los botones nacarados le dan un toque elegante. Recomendable.",
+      "fecha": "2026-04-20"
+    },
+    {
+      "nombre": "Valentina T.",
+      "estrellas": 5,
+      "comentario": "Me encantó el corte recto, queda muy bien. Atención al detalle de FINALOOK como siempre.",
+      "fecha": "2026-05-15"
+    }
+  ],
+  "top-kim": [
+    {
+      "nombre": "Juana B.",
+      "estrellas": 5,
+      "comentario": "El corte vintage es justo lo que buscaba. Estructurado pero cómodo.",
+      "fecha": "2026-04-08"
+    }
+  ]
+}

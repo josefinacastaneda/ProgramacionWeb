@@ -6,6 +6,7 @@
     "precio": 35000,
     "imagenes": ["/img/camisa_kala.jpg", "/img/camisa_kala2.jpg", "/img/camisa_kala3.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 3, "M": 0, "L": 5 },
     "descripcion": "Camisa de denim lavado con corte recto y costuras reforzadas. Cierre con botones nacarados.",
     "material": "100% denim lavado",
     "badge": "Novedad"
@@ -17,6 +18,7 @@
     "precio": 28000,
     "imagenes": ["/img/top_amelie.jpg", "/img/top_amelie2.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 2, "M": 6, "L": 4 },
     "descripcion": "Top cropped de denim suave con terminaciones a mano. Corte asimétrico en el dobladillo.",
     "material": "Denim elastizado",
     "badge": null
@@ -28,6 +30,7 @@
     "precio": 25000,
     "imagenes": ["/img/top_asimetrico_blanco.jpg", "/img/top_asimetrico_blanco2.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 5, "M": 3, "L": 0 },
     "descripcion": "Un solo hombro expuesto, escote en V y nudo lateral ajustable. Dos colores disponibles.",
     "material": "Denim suave",
     "badge": "2 colores",
@@ -51,6 +54,7 @@
     "precio": 22000,
     "imagenes": ["/img/top_halter.jpg", "/img/top_halter2.jpg", "/img/top_halter3.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 0, "M": 4, "L": 7 },
     "descripcion": "Espalda descubierta con nudo frontal. Tiras ajustables al cuello. Ideal para clima cálido.",
     "material": "Denim liviano",
     "badge": null
@@ -62,6 +66,7 @@
     "precio": 30000,
     "imagenes": ["/img/top_kim.jpg", "/img/top_kim2.jpg", "/img/top_kim3.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 8, "M": 2, "L": 5 },
     "descripcion": "Top estructurado de inspiración vintage con detalles en las costuras laterales.",
     "material": "Denim rígido",
     "badge": "Destacado"
@@ -73,6 +78,7 @@
     "precio": 27000,
     "imagenes": ["/img/top_mara.jpg", "/img/top_mara2.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 4, "M": 5, "L": 1 },
     "descripcion": "Corte recto con bordado artesanal en el pecho. Confeccionado pieza por pieza.",
     "material": "Denim bordado",
     "badge": null
@@ -84,6 +90,7 @@
     "precio": 24000,
     "imagenes": ["/img/top_nudo.jpg", "/img/top_nudo2.jpg", "/img/top_nudo3.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 6, "M": 0, "L": 3 },
     "descripcion": "Nudo frontal ajustable con escote en V pronunciado. Stretch para mayor comodidad.",
     "material": "Denim stretch",
     "badge": null
@@ -95,6 +102,7 @@
     "precio": 45000,
     "imagenes": ["/img/vestido_fina.jpg", "/img/vestido_fina2.jpg", "/img/vestido_fina3.jpg"],
     "talles": ["S", "M", "L"],
+    "stock": { "S": 1, "M": 2, "L": 4 },
     "descripcion": "Vestido midi de denim con bordados artesanales en el dobladillo. La pieza estrella del Drop 01.",
     "material": "Denim premium bordado",
     "badge": "Star piece"

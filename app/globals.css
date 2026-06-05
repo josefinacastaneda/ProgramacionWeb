@@ -871,6 +871,58 @@ footer {
   transition: background var(--transicion);
 }
 .btn-checkout:hover { background: var(--denim-claro); color: var(--marfil); }
+.btn-checkout:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-checkout:disabled:hover { background: var(--marfil); color: var(--negro); }
+
+/* ============================================================
+   CHECKOUT — datos de envío
+============================================================ */
+.checkout-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.6); z-index: 500;
+  opacity: 0; pointer-events: none; transition: opacity var(--transicion);
+}
+.checkout-overlay.abierto { opacity: 1; pointer-events: all; }
+.checkout-panel {
+  position: fixed; top: 0; right: 0;
+  width: min(460px, 100vw); height: 100vh;
+  background: var(--negro-card); border-left: 1px solid var(--negro-borde);
+  z-index: 600; transform: translateX(100%);
+  transition: transform 0.45s cubic-bezier(0.4,0,0.2,1);
+  display: flex; flex-direction: column;
+}
+.checkout-panel.abierto { transform: translateX(0); }
+.checkout-body { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; }
+.checkout-intro {
+  font-size: 0.72rem; line-height: 1.7; letter-spacing: 0.04em;
+  color: var(--marfil-dim); margin-bottom: 1.8rem;
+}
+.checkout-field { margin-bottom: 1.1rem; }
+.checkout-label {
+  display: block; font-size: 0.58rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--marfil-dim); margin-bottom: 0.5rem;
+}
+.checkout-opcional { text-transform: none; letter-spacing: 0.05em; color: rgba(242,237,228,0.3); }
+.checkout-input {
+  width: 100%; background: var(--negro-medio);
+  border: 1px solid var(--negro-borde); color: var(--marfil);
+  padding: 0.8rem 0.9rem; font-family: var(--font-body);
+  font-size: 0.85rem; letter-spacing: 0.03em;
+  transition: border-color var(--transicion);
+}
+.checkout-input::placeholder { color: rgba(242,237,228,0.25); }
+.checkout-input:focus { outline: none; border-color: var(--denim-claro); }
+.checkout-row { display: flex; gap: 0.9rem; }
+.checkout-sep {
+  font-family: var(--font-display); font-size: 1.05rem;
+  letter-spacing: 0.05em; color: var(--marfil);
+  margin: 1.8rem 0 1.1rem; padding-top: 1.4rem;
+  border-top: 1px solid var(--negro-borde);
+}
+.checkout-aviso {
+  margin-top: 0.9rem; font-size: 0.6rem; letter-spacing: 0.08em;
+  text-align: center; color: var(--marfil-dim);
+}
 
 /* ============================================================
    BUSCADOR
@@ -985,3 +1037,207 @@ footer {
   .nav-logo .studio { display: none; }
   .productos-grid { grid-template-columns: repeat(2,1fr); gap: 0.75rem; }
 }
+
+/* ============================================================
+   SOCIAL PROOF + RATING (modal)
+============================================================ */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.modal-viendo {
+  font-family: var(--font-body); font-size: 0.66rem;
+  letter-spacing: 0.12em; color: var(--denim-claro);
+  margin: 0.2rem 0 0.9rem;
+  animation: fadeIn 0.6s ease;
+}
+.modal-rating-resumen {
+  display: flex; align-items: center; gap: 0.6rem; margin-bottom: 1rem;
+}
+.estrellas-mostrar { color: var(--oro); font-size: 0.9rem; letter-spacing: 0.1em; }
+.estrellas-vacias { color: rgba(242,237,228,0.18); }
+.modal-rating-num { font-size: 0.62rem; letter-spacing: 0.12em; color: var(--marfil-dim); }
+
+/* ============================================================
+   TALLE: guía + stock
+============================================================ */
+.modal-talle-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.guia-talles-link {
+  background: none; border: none; color: var(--denim-claro);
+  font-family: var(--font-body); font-size: 0.58rem; letter-spacing: 0.18em;
+  text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px;
+  cursor: pointer; transition: color var(--transicion); margin-bottom: 0.7rem;
+}
+.guia-talles-link:hover { color: var(--marfil); }
+.modal-talle-col { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; }
+.modal-talle-btn.agotado {
+  text-decoration: line-through; opacity: 0.3; cursor: not-allowed;
+}
+.modal-talle-btn.agotado:hover {
+  border-color: var(--negro-borde); color: var(--marfil-dim); background: none;
+}
+.talle-ultimas {
+  font-size: 0.48rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #e0606a; text-align: center; max-width: 46px; line-height: 1.2;
+}
+
+/* ============================================================
+   RESEÑAS (modal)
+============================================================ */
+.modal-seccion-titulo {
+  font-family: var(--font-display); font-size: 1.25rem; font-weight: 400;
+  letter-spacing: 0.05em; margin: 2.4rem 0 1.2rem;
+  padding-top: 1.6rem; border-top: 1px solid var(--negro-borde);
+}
+.modal-resenas-vacio { font-size: 0.72rem; color: var(--marfil-dim); letter-spacing: 0.04em; }
+.resenas-lista { display: flex; flex-direction: column; gap: 1.2rem; margin-bottom: 1.8rem; }
+.resena-item { padding-bottom: 1.2rem; border-bottom: 1px solid var(--negro-borde); }
+.resena-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.3rem; }
+.resena-nombre { font-family: var(--font-display); font-size: 0.95rem; }
+.resena-fecha { font-size: 0.56rem; letter-spacing: 0.1em; color: var(--marfil-dim); }
+.resena-estrellas { font-size: 0.78rem; display: inline-block; margin-bottom: 0.4rem; }
+.resena-comentario { font-size: 0.78rem; line-height: 1.6; color: var(--marfil-dim); letter-spacing: 0.02em; }
+.resena-form { display: flex; flex-direction: column; gap: 0.7rem; margin-top: 0.5rem; }
+.resena-textarea { resize: vertical; min-height: 70px; font-family: var(--font-body); }
+.resena-estrellas-input { display: flex; gap: 0.25rem; }
+.estrella-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 1.5rem; line-height: 1; color: rgba(242,237,228,0.2);
+  transition: color var(--transicion);
+}
+.estrella-btn.activa { color: var(--oro); }
+.btn-publicar-resena {
+  align-self: flex-start; background: var(--denim); color: var(--marfil);
+  border: none; padding: 0.7rem 1.6rem; font-size: 0.6rem; font-weight: 500;
+  letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer;
+  transition: background var(--transicion);
+}
+.btn-publicar-resena:hover { background: var(--denim-claro); }
+.btn-publicar-resena:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ============================================================
+   PRODUCTOS RELACIONADOS (modal)
+============================================================ */
+.relacionados-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; }
+.relacionado-card {
+  background: none; border: none; cursor: pointer; text-align: left;
+  display: flex; flex-direction: column; gap: 0.4rem; padding: 0;
+}
+.relacionado-img {
+  width: 100%; aspect-ratio: 3/4; overflow: hidden; background: var(--negro-medio);
+}
+.relacionado-img img {
+  width: 100%; height: 100%; object-fit: cover; object-position: top;
+  transition: transform 0.5s ease;
+}
+.relacionado-card:hover .relacionado-img img { transform: scale(1.06); }
+.relacionado-nombre { font-family: var(--font-display); font-size: 0.82rem; color: var(--marfil); }
+.relacionado-precio { font-size: 0.66rem; color: var(--marfil-dim); letter-spacing: 0.05em; }
+
+/* ============================================================
+   CHECKOUT: país (select), referido, cupón, desglose
+============================================================ */
+select.checkout-input {
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a89f90' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat; background-position: right 0.9rem center;
+  padding-right: 2.2rem; cursor: pointer;
+}
+.referido-box {
+  border: 1px solid var(--denim); background: var(--denim-tenue);
+  padding: 1rem; margin-bottom: 1.1rem;
+}
+.referido-label {
+  display: block; font-size: 0.55rem; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--denim-claro); margin-bottom: 0.6rem;
+}
+.referido-codigo-row { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; }
+.referido-codigo {
+  font-family: var(--font-display); font-size: 1.3rem; letter-spacing: 0.08em; color: var(--marfil);
+}
+.referido-copiar {
+  background: var(--marfil); color: var(--negro); border: none;
+  padding: 0.5rem 0.9rem; font-size: 0.52rem; letter-spacing: 0.2em; text-transform: uppercase;
+  cursor: pointer; transition: background var(--transicion); white-space: nowrap;
+}
+.referido-copiar:hover { background: var(--denim-claro); color: var(--marfil); }
+.referido-texto { font-size: 0.62rem; line-height: 1.5; color: var(--marfil-dim); margin-top: 0.7rem; }
+.cupon-row { display: flex; gap: 0.6rem; }
+.cupon-row .checkout-input { flex: 1; }
+.cupon-btn {
+  background: var(--marfil); color: var(--negro); border: none;
+  padding: 0 1.2rem; font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase;
+  cursor: pointer; transition: background var(--transicion); white-space: nowrap;
+}
+.cupon-btn:hover { background: var(--denim-claro); color: var(--marfil); }
+.cupon-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.cupon-quitar { background: none; color: var(--marfil-dim); border: 1px solid var(--negro-borde); }
+.cupon-quitar:hover { background: none; color: var(--marfil); border-color: var(--marfil); }
+.cupon-ok { margin-top: 0.7rem; font-size: 0.64rem; letter-spacing: 0.06em; color: #6fbf86; }
+.cupon-error { margin-top: 0.7rem; font-size: 0.64rem; letter-spacing: 0.06em; color: #e0606a; }
+.checkout-desglose {
+  display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 1.1rem;
+  padding-bottom: 1.1rem; border-bottom: 1px solid var(--negro-borde);
+}
+.desglose-fila {
+  display: flex; justify-content: space-between;
+  font-size: 0.66rem; letter-spacing: 0.06em; color: var(--marfil-dim);
+}
+.desglose-descuento { color: #6fbf86; }
+
+/* ============================================================
+   GUÍA DE TALLES (popup)
+============================================================ */
+.guia-overlay {
+  position: fixed; inset: 0; z-index: 700;
+  background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem; opacity: 0; pointer-events: none; transition: opacity var(--transicion);
+}
+.guia-overlay.abierto { opacity: 1; pointer-events: all; }
+.guia-popup {
+  background: var(--negro-card); border: 1px solid var(--negro-borde);
+  width: min(460px, 100%); padding: 2rem; animation: fadeUpIn 0.3s ease both;
+}
+.guia-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.4rem; }
+.guia-titulo { font-family: var(--font-display); font-size: 1.5rem; font-weight: 400; letter-spacing: 0.05em; }
+.guia-tabla { width: 100%; border-collapse: collapse; }
+.guia-tabla th {
+  font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--denim-claro); text-align: left; padding: 0.6rem 0.4rem;
+  border-bottom: 1px solid var(--negro-borde);
+}
+.guia-tabla td {
+  font-size: 0.78rem; color: var(--marfil-dim); padding: 0.7rem 0.4rem;
+  border-bottom: 1px solid var(--negro-borde);
+}
+.guia-tabla td:first-child { font-family: var(--font-display); color: var(--marfil); font-size: 0.95rem; }
+.guia-nota { font-size: 0.6rem; color: var(--marfil-dim); letter-spacing: 0.04em; margin-top: 1.2rem; line-height: 1.5; }
+
+/* ============================================================
+   WHATSAPP FLOTANTE
+============================================================ */
+.whatsapp-flotante {
+  position: fixed; right: 1.6rem; bottom: 1.6rem; z-index: 350;
+  width: 56px; height: 56px; border-radius: 50%;
+  background: #25D366; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 22px rgba(37,211,102,0.45);
+  transition: transform var(--transicion);
+  animation: whatsappPulse 2.4s infinite;
+}
+.whatsapp-flotante:hover { transform: scale(1.08); }
+@keyframes whatsappPulse {
+  0% { box-shadow: 0 6px 22px rgba(37,211,102,0.45), 0 0 0 0 rgba(37,211,102,0.5); }
+  70% { box-shadow: 0 6px 22px rgba(37,211,102,0.45), 0 0 0 16px rgba(37,211,102,0); }
+  100% { box-shadow: 0 6px 22px rgba(37,211,102,0.45), 0 0 0 0 rgba(37,211,102,0); }
+}
+
+/* ============================================================
+   INSTAGRAM footer
+============================================================ */
+.footer-instagram {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  color: var(--marfil-dim); margin: 0.4rem 0 0.8rem;
+  font-size: 0.62rem; letter-spacing: 0.14em;
+  transition: color var(--transicion);
+}
+.footer-instagram:hover { color: var(--denim-claro); }

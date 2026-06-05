@@ -16,6 +16,7 @@ export interface Producto {
   precio: number;
   imagenes: string[];
   talles: string[];
+  stock?: Record<string, number>;
   descripcion: string;
   material: string;
   badge: string | null;
