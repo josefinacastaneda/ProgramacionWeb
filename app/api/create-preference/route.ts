@@ -49,11 +49,13 @@ export async function POST(req: NextRequest) {
     items?: ItemBody[];
     comprador?: CompradorBody;
     pais?: string;
+    entrega?: string;
     cupon?: string;
   };
   const items = body.items;
   const comprador = body.comprador ?? {};
   const pais = body.pais === 'internacional' ? 'internacional' : 'argentina';
+  const entrega = body.entrega === 'retiro' ? 'retiro' : 'envio';
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'El carrito está vacío.' }, { status: 400 });
@@ -91,13 +93,16 @@ export async function POST(req: NextRequest) {
   }
 
   // Envío como ítem separado para que MercadoPago muestre el desglose.
-  itemsFinal.push({
-    id: `envio-${pais}`,
-    title: pais === 'argentina' ? 'Envío (Argentina)' : 'Envío (Internacional)',
-    quantity: 1,
-    unit_price: COSTO_ENVIO[pais],
-    currency_id: 'ARS',
-  });
+  // Con retiro en local no se cobra envío, así que no agregamos el ítem.
+  if (entrega !== 'retiro') {
+    itemsFinal.push({
+      id: `envio-${pais}`,
+      title: pais === 'argentina' ? 'Envío (Argentina)' : 'Envío (Internacional)',
+      quantity: 1,
+      unit_price: COSTO_ENVIO[pais],
+      currency_id: 'ARS',
+    });
+  }
 
   // back_urls absolutas: usamos el origin del request (o una URL configurada).
   const origin =
@@ -132,16 +137,21 @@ export async function POST(req: NextRequest) {
         street_number: comprador.numero?.trim() || undefined,
       },
     },
-    shipments: {
-      receiver_address: {
-        zip_code: comprador.cp?.trim() || undefined,
-        street_name: comprador.calle?.trim() || undefined,
-        street_number: comprador.numero?.trim() || undefined,
-        city_name: comprador.ciudad?.trim() || undefined,
-        state_name: comprador.provincia?.trim() || undefined,
-        country_name: pais === 'argentina' ? 'Argentina' : undefined,
-      },
-    },
+    // Sin dirección de envío cuando el comprador retira en el local.
+    ...(entrega === 'envio'
+      ? {
+          shipments: {
+            receiver_address: {
+              zip_code: comprador.cp?.trim() || undefined,
+              street_name: comprador.calle?.trim() || undefined,
+              street_number: comprador.numero?.trim() || undefined,
+              city_name: comprador.ciudad?.trim() || undefined,
+              state_name: comprador.provincia?.trim() || undefined,
+              country_name: pais === 'argentina' ? 'Argentina' : undefined,
+            },
+          },
+        }
+      : {}),
     back_urls: {
       success: `${origin}/gracias`,
       pending: `${origin}/pendiente`,
@@ -151,6 +161,7 @@ export async function POST(req: NextRequest) {
     // qué talle se compró de cada producto (MP no lo transmite por sí solo).
     metadata: {
       pais,
+      entrega,
       cupon: body.cupon ?? null,
       comprador: {
         nombre: comprador.nombre ?? null,

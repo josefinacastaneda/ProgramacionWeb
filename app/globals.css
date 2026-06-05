@@ -940,6 +940,26 @@ footer {
   text-align: center; color: var(--marfil-dim);
 }
 
+/* ── Forma de entrega: envío vs retiro ── */
+.entrega-opciones { display: flex; flex-direction: column; gap: 0.6rem; }
+.entrega-opcion {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.75rem 0.9rem; cursor: pointer;
+  border: 1px solid var(--negro-borde); border-radius: 3px;
+  background: var(--negro-medio); color: var(--marfil-dim);
+  font-size: 0.78rem; letter-spacing: 0.04em;
+  transition: border-color var(--transicion), color var(--transicion);
+}
+.entrega-opcion:hover { color: var(--marfil); }
+.entrega-opcion.activa { border-color: var(--denim); color: var(--marfil); }
+.entrega-opcion input { accent-color: var(--denim); }
+.entrega-aviso {
+  margin: 0.4rem 0 0.2rem; padding: 0.7rem 0.9rem;
+  background: var(--denim-tenue); border: 1px solid var(--denim-borde);
+  border-radius: 3px; color: var(--marfil);
+  font-size: 0.72rem; letter-spacing: 0.04em;
+}
+
 /* ============================================================
    BUSCADOR
 ============================================================ */

@@ -123,6 +123,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   });
 
   // ── Envío dinámico ──
+  const [entrega, setEntrega] = useState<'envio' | 'retiro'>('envio');
   const [pais, setPais] = useState<'argentina' | 'internacional'>('argentina');
 
   // ── Cupón de descuento ──
@@ -358,14 +359,17 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   }
   // Habilita el pago sólo con nombre, email válido y dirección completa.
   const emailCompradorValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(comprador.email.trim());
-  const checkoutValido =
-    comprador.nombre.trim() !== '' &&
-    emailCompradorValido &&
+  const direccionCompleta =
     comprador.calle.trim() !== '' &&
     comprador.numero.trim() !== '' &&
     comprador.ciudad.trim() !== '' &&
     comprador.provincia.trim() !== '' &&
     comprador.cp.trim() !== '';
+  // Con retiro en local no pedimos dirección, sólo nombre y email.
+  const checkoutValido =
+    comprador.nombre.trim() !== '' &&
+    emailCompradorValido &&
+    (entrega === 'retiro' || direccionCompleta);
 
   function abrirCheckout() {
     if (carrito.length === 0) {
@@ -397,7 +401,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       const res = await fetch('/api/create-preference', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items, comprador, pais, cupon: cuponAplicado?.codigo }),
+        body: JSON.stringify({ items, comprador, pais, entrega, cupon: cuponAplicado?.codigo }),
       });
       const data = await res.json();
       if (!res.ok || !data.init_point) {
@@ -416,7 +420,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ────────────────────────────────────────────────
   // ENVÍO + CUPÓN + TOTAL
   // ────────────────────────────────────────────────
-  const envioCosto = pais === 'argentina' ? 10000 : 20000;
+  const envioCosto = entrega === 'retiro' ? 0 : pais === 'argentina' ? 10000 : 20000;
   const descuentoMonto = cuponAplicado
     ? Math.round((carritoTotal * cuponAplicado.descuento) / 100)
     : 0;
@@ -1539,19 +1543,51 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           </div>
 
           <div className="checkout-field">
-            <label className="checkout-label" htmlFor="co-pais">País *</label>
-            <select
-              id="co-pais"
-              className="checkout-input"
-              value={pais}
-              onChange={(e) => setPais(e.target.value === 'internacional' ? 'internacional' : 'argentina')}
-            >
-              <option value="argentina">Argentina — envío {formatearPrecio(10000)}</option>
-              <option value="internacional">Internacional — envío {formatearPrecio(20000)}</option>
-            </select>
+            <span className="checkout-label">¿Cómo querés recibir tu pedido?</span>
+            <div className="entrega-opciones" role="radiogroup" aria-label="Forma de entrega">
+              <label className={`entrega-opcion${entrega === 'envio' ? ' activa' : ''}`}>
+                <input
+                  type="radio"
+                  name="entrega"
+                  value="envio"
+                  checked={entrega === 'envio'}
+                  onChange={() => setEntrega('envio')}
+                />
+                🚚 Envío a domicilio
+              </label>
+              <label className={`entrega-opcion${entrega === 'retiro' ? ' activa' : ''}`}>
+                <input
+                  type="radio"
+                  name="entrega"
+                  value="retiro"
+                  checked={entrega === 'retiro'}
+                  onChange={() => setEntrega('retiro')}
+                />
+                📍 Retiro en local (gratis)
+              </label>
+            </div>
           </div>
 
-          <div className="checkout-sep">Dirección de envío</div>
+          {entrega === 'retiro' && (
+            <p className="entrega-aviso">Te avisamos por email cuando esté listo para retirar</p>
+          )}
+
+          {entrega === 'envio' && (
+            <>
+              <div className="checkout-field">
+                <label className="checkout-label" htmlFor="co-pais">País *</label>
+                <select
+                  id="co-pais"
+                  className="checkout-input"
+                  value={pais}
+                  onChange={(e) => setPais(e.target.value === 'internacional' ? 'internacional' : 'argentina')}
+                >
+                  <option value="argentina">Argentina — envío {formatearPrecio(10000)}</option>
+                  <option value="internacional">Internacional — envío {formatearPrecio(20000)}</option>
+                </select>
+              </div>
+
+              <div className="checkout-sep">Dirección de envío</div>
 
           <div className="checkout-row">
             <div className="checkout-field" style={{ flex: 2 }}>
@@ -1613,6 +1649,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               />
             </div>
           </div>
+            </>
+          )}
 
           <div className="checkout-sep">Cupón de descuento</div>
           <div className="cupon-row">
@@ -1662,8 +1700,12 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               </div>
             )}
             <div className="desglose-fila">
-              <span>Envío ({pais === 'argentina' ? 'Argentina' : 'Internacional'})</span>
-              <span>{formatearPrecio(envioCosto)}</span>
+              <span>
+                {entrega === 'retiro'
+                  ? 'Retiro en local'
+                  : `Envío (${pais === 'argentina' ? 'Argentina' : 'Internacional'})`}
+              </span>
+              <span>{entrega === 'retiro' ? 'Gratis' : formatearPrecio(envioCosto)}</span>
             </div>
           </div>
           <div className="sidebar-total">
@@ -1674,7 +1716,11 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             {comprando ? 'Redirigiendo…' : 'Pagar con MercadoPago'}
           </button>
           {!checkoutValido && (
-            <p className="checkout-aviso">Completá nombre, email y dirección para habilitar el pago.</p>
+            <p className="checkout-aviso">
+              {entrega === 'retiro'
+                ? 'Completá nombre y email para habilitar el pago.'
+                : 'Completá nombre, email y dirección para habilitar el pago.'}
+            </p>
           )}
         </div>
       </aside>
