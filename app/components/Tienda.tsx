@@ -20,6 +20,7 @@ interface CartItem {
   talle: string;
   color: string | null;
   imgSrc: string;
+  cantidad: number;
 }
 interface FavItem {
   producto: Producto;
@@ -252,7 +253,10 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   useEffect(() => {
     try {
       const c = localStorage.getItem('finalook_carrito');
-      if (c) setCarrito(JSON.parse(c) as CartItem[]);
+      if (c) {
+        const items = JSON.parse(c) as CartItem[];
+        setCarrito(items.map((it) => ({ ...it, cantidad: it.cantidad ?? 1 })));
+      }
       const f = localStorage.getItem('finalook_favoritos');
       if (f) setFavoritos(JSON.parse(f) as FavItem[]);
     } catch {
@@ -361,21 +365,69 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // CARRITO
   // ────────────────────────────────────────────────
   function agregarAlCarrito(prod: Producto, talle: string, color: string | null, imgSrc: string) {
-    setCarrito((prev) => [...prev, { producto: prod, talle, color, imgSrc }]);
+    // Si ya existe ese producto con el mismo talle y color, sumamos cantidad.
+    setCarrito((prev) => {
+      const i = prev.findIndex(
+        (it) => it.producto.id === prod.id && it.talle === talle && it.color === color,
+      );
+      if (i !== -1) {
+        const copia = [...prev];
+        copia[i] = { ...copia[i], cantidad: copia[i].cantidad + 1 };
+        return copia;
+      }
+      return [...prev, { producto: prod, talle, color, imgSrc, cantidad: 1 }];
+    });
     mostrarToast(`${prod.nombre} (${talle}) agregado`);
   }
-  function removerDelCarrito(idx: number) {
-    const item = carrito[idx];
-    // Devolvemos la unidad al stock en memoria.
-    if (item?.talle && item.producto.stock) {
+  // Devuelve n unidades al stock en memoria.
+  function devolverStock(item: CartItem, n: number) {
+    if (item.talle && item.producto.stock) {
       setStockMap((sm) => ({
         ...sm,
         [item.producto.id]: {
           ...sm[item.producto.id],
-          [item.talle]: (sm[item.producto.id]?.[item.talle] ?? 0) + 1,
+          [item.talle]: (sm[item.producto.id]?.[item.talle] ?? 0) + n,
         },
       }));
     }
+  }
+  function incrementarCantidad(idx: number) {
+    const item = carrito[idx];
+    if (!item) return;
+    // Respetamos el stock disponible (los talles "—" no llevan control).
+    if (item.talle && item.producto.stock && stockDe(item.producto, item.talle) <= 0) {
+      mostrarToast(`Sin stock de talle ${item.talle}`);
+      return;
+    }
+    if (item.talle && item.producto.stock) {
+      setStockMap((sm) => ({
+        ...sm,
+        [item.producto.id]: {
+          ...sm[item.producto.id],
+          [item.talle]: (sm[item.producto.id]?.[item.talle] ?? 1) - 1,
+        },
+      }));
+    }
+    setCarrito((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, cantidad: it.cantidad + 1 } : it)),
+    );
+  }
+  function decrementarCantidad(idx: number) {
+    const item = carrito[idx];
+    if (!item) return;
+    devolverStock(item, 1);
+    if (item.cantidad <= 1) {
+      setCarrito((prev) => prev.filter((_, i) => i !== idx));
+      return;
+    }
+    setCarrito((prev) =>
+      prev.map((it, i) => (i === idx ? { ...it, cantidad: it.cantidad - 1 } : it)),
+    );
+  }
+  function removerDelCarrito(idx: number) {
+    const item = carrito[idx];
+    // Devolvemos todas las unidades de este renglón al stock en memoria.
+    if (item) devolverStock(item, item.cantidad);
     setCarrito((prev) => prev.filter((_, i) => i !== idx));
   }
   function stockDe(prod: Producto, talle: string) {
@@ -446,7 +498,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       const items = carrito.map((it) => ({
         id: it.producto.id,
         title: it.color ? `${it.producto.nombre} (${it.color})` : it.producto.nombre,
-        quantity: 1,
+        quantity: it.cantidad,
         unit_price: it.producto.precio,
         talle: it.talle,
       }));
@@ -467,7 +519,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       setComprando(false);
     }
   }
-  const carritoTotal = carrito.reduce((acc, it) => acc + it.producto.precio, 0);
+  const carritoTotal = carrito.reduce((acc, it) => acc + it.producto.precio * it.cantidad, 0);
 
   // ────────────────────────────────────────────────
   // ENVÍO + CUPÓN + TOTAL
@@ -624,7 +676,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     }
     setCarrito((prev) => [
       ...prev,
-      ...favoritos.map((it) => ({ producto: it.producto, talle: '—', color: null, imgSrc: it.imgSrc })),
+      ...favoritos.map((it) => ({ producto: it.producto, talle: '—', color: null, imgSrc: it.imgSrc, cantidad: 1 })),
     ]);
     mostrarToast(`${favoritos.length} prenda/s movida/s al carrito`);
     // Al pasar al carrito, ya no quedan en favoritos.
@@ -800,7 +852,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 <path d="M16 10a4 4 0 01-8 0" />
               </svg>
               <span className="nav-badge" aria-live="polite">
-                {carrito.length}
+                {carrito.reduce((acc, it) => acc + it.cantidad, 0)}
               </span>
             </button>
           </div>
@@ -1465,6 +1517,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           ) : (
             carrito.map((it, idx) => {
               const detalle = [it.talle ? `Talle ${it.talle}` : '', it.color || ''].filter(Boolean).join(' · ');
+              // El "+" se deshabilita cuando ya no queda stock de ese talle.
+              const sinStock = !!(it.talle && it.producto.stock) && stockDe(it.producto, it.talle) <= 0;
               return (
                 <div className="sidebar-item" key={idx}>
                   <div className="sidebar-item-img">
@@ -1473,7 +1527,25 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                   <div className="sidebar-item-info">
                     <p className="sidebar-item-nombre">{it.producto.nombre}</p>
                     <p className="sidebar-item-detalle">{detalle}</p>
-                    <p className="sidebar-item-precio">{formatearPrecio(it.producto.precio)}</p>
+                    <div className="sidebar-cantidad">
+                      <button
+                        className="cantidad-btn"
+                        aria-label="Restar uno"
+                        onClick={() => decrementarCantidad(idx)}
+                      >
+                        −
+                      </button>
+                      <span className="cantidad-num">Cantidad: {it.cantidad}</span>
+                      <button
+                        className="cantidad-btn"
+                        aria-label="Sumar uno"
+                        onClick={() => incrementarCantidad(idx)}
+                        disabled={sinStock}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <p className="sidebar-item-precio">{formatearPrecio(it.producto.precio * it.cantidad)}</p>
                   </div>
                   <button className="sidebar-item-remove" aria-label={`Quitar ${it.producto.nombre}`} onClick={() => removerDelCarrito(idx)}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
