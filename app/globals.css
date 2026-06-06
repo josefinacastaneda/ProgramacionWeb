@@ -32,14 +32,15 @@
    RESET
 ============================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
 body {
   font-family: var(--font-body);
   background: var(--negro);
   color: var(--marfil);
   overflow-x: hidden;
+  width: 100%;
 }
-img { max-width: 100%; display: block; }
+img, svg, video { max-width: 100%; display: block; }
 a { text-decoration: none; color: inherit; }
 button { cursor: pointer; font-family: var(--font-body); }
 ul { list-style: none; }
@@ -184,6 +185,7 @@ nav {
 .hero {
   position: relative;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -820,7 +822,7 @@ footer {
 .sidebar-overlay.abierto { opacity: 1; pointer-events: all; }
 .sidebar {
   position: fixed; top: 0; right: 0;
-  width: min(400px, 100vw); height: 100vh;
+  width: min(400px, 100vw); height: 100vh; height: 100dvh;
   background: var(--negro-card); border-left: 1px solid var(--negro-borde);
   z-index: 400; transform: translateX(100%);
   transition: transform 0.45s cubic-bezier(0.4,0,0.2,1);
@@ -901,7 +903,7 @@ footer {
 .checkout-overlay.abierto { opacity: 1; pointer-events: all; }
 .checkout-panel {
   position: fixed; top: 0; right: 0;
-  width: min(460px, 100vw); height: 100vh;
+  width: min(460px, 100vw); height: 100vh; height: 100dvh;
   background: var(--negro-card); border-left: 1px solid var(--negro-borde);
   z-index: 600; transform: translateX(100%);
   transition: transform 0.45s cubic-bezier(0.4,0,0.2,1);
@@ -1059,19 +1061,74 @@ footer {
 /* ============================================================
    RESPONSIVE
 ============================================================ */
-@media (max-width: 960px) {
-  .productos-grid { grid-template-columns: repeat(2,1fr); }
-  .modal-overlay { grid-template-columns: 1fr; }
-  .modal-galeria { height: 55vh; }
-  .modal-info { padding: 1.5rem; }
-  .modal-close { position: sticky; top: 0; align-self: flex-end; margin-left: auto; }
+/* ── Tablet (≤1024px): iPad. El modal pasa a una sola columna scrollable. ── */
+@media (max-width: 1024px) {
+  nav { padding: 0 1.5rem; gap: 1rem; }
+  .nav-links { gap: 1.6rem; }
+  .coleccion-section { padding: 5rem 1.5rem; }
+  .productos-grid { grid-template-columns: repeat(2, 1fr); }
+  .modal-overlay { grid-template-columns: 1fr; overflow-y: auto; }
+  .modal-galeria { height: 60vh; height: 60dvh; }
+  .modal-info { padding: 1.5rem 1.5rem 3.5rem; border-left: none; }
   .envios-grid { grid-template-columns: 1fr; }
 }
-@media (max-width: 600px) {
-  nav { grid-template-columns: 1fr auto; }
+
+/* ── Móvil (≤768px) ── */
+@media (max-width: 768px) {
+  /* Navbar: logo a la izquierda, íconos a la derecha, sin desbordar. */
+  nav { grid-template-columns: 1fr auto; padding: 0 1rem; height: 64px; gap: 0.5rem; }
   .nav-links { display: none; }
   .nav-logo .studio { display: none; }
-  .productos-grid { grid-template-columns: repeat(2,1fr); gap: 0.75rem; }
+  .nav-acciones { gap: 0.3rem; }
+  .nav-icon-btn { min-width: 44px; min-height: 44px; padding: 10px; }
+
+  .coleccion-section { padding: 4rem 1rem; }
+  .seccion-header { flex-wrap: wrap; gap: 0.8rem; margin-bottom: 2rem; }
+  .toolbar { gap: 0.6rem; margin-bottom: 2rem; }
+  .productos-grid { grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
+  .productos-grid.vista-uno { grid-template-columns: 1fr; }
+
+  /* Modal a pantalla completa con scroll propio y cerrar siempre visible. */
+  .modal-galeria { height: 50vh; height: 50dvh; }
+  .modal-nombre { font-size: clamp(1.8rem, 7vw, 2.6rem); }
+
+  /* Hero: que escale y no desborde en pantallas chicas. */
+  .hero-contenido { padding: 0 1.2rem; max-width: 100%; }
+  .hero-titulo { font-size: clamp(2.6rem, 13vw, 5rem); letter-spacing: 0.1em; }
+  .hero-studio-sub { letter-spacing: 0.5em; }
+  .hero-tagline { font-size: 0.56rem; letter-spacing: 0.24em; margin-top: 1.8rem; }
+
+  /* Formularios: inputs ≥16px evitan el zoom automático de iOS. */
+  input, textarea, select,
+  .checkout-input, .admin-input, .admin-textarea, .resena-textarea { font-size: 16px; }
+  .checkout-row { flex-direction: column; gap: 0; }
+  .checkout-body, .sidebar-items { padding: 1.2rem; }
+  .sidebar-footer { padding: 1.2rem; }
+}
+
+/* ── Móvil chico (≤380px): iPhone SE / mini ── */
+@media (max-width: 380px) {
+  .hero-titulo { font-size: clamp(2.1rem, 12vw, 3rem); letter-spacing: 0.05em; }
+  .hero-drop-label { letter-spacing: 0.35em; margin-bottom: 1.6rem; }
+  .coleccion-section { padding: 3.5rem 0.8rem; }
+  .productos-grid { gap: 0.5rem; }
+  .seccion-titulo { font-size: clamp(2rem, 9vw, 2.6rem); }
+}
+
+/* ── Landscape con poca altura: el footer (Pagar/Continuar) siempre visible. ── */
+@media (orientation: landscape) and (max-height: 600px) {
+  .sidebar, .checkout-panel { height: 100vh; height: 100dvh; }
+  .sidebar-items, .checkout-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+  .sidebar-footer { position: sticky; bottom: 0; background: var(--negro-card); }
+  .modal-overlay { overflow-y: auto; }
+  .modal-galeria { height: 90vh; }
+}
+
+/* ── Táctil: el dropdown de colección se abre al tocar "Colección" (focus). ── */
+@media (hover: none) {
+  .nav-item:focus-within .nav-dropdown {
+    opacity: 1; pointer-events: all; transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* ============================================================
