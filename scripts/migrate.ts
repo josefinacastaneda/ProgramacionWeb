@@ -5,7 +5,9 @@ import path from 'path';
 import { Client } from 'pg';
 import { createClient } from '@supabase/supabase-js';
 
-const SQL_FILE = path.join(process.cwd(), 'supabase', 'migrations', '001_initial.sql');
+// Permite elegir la migración: `npm run migrate 003_unique_payment.sql`.
+const ARCHIVO = process.argv[2] ?? '001_initial.sql';
+const SQL_FILE = path.join(process.cwd(), 'supabase', 'migrations', ARCHIVO);
 
 // Construye la connection string de Supabase a partir de la URL del proyecto
 // y SUPABASE_DB_PASSWORD, si el usuario no dio SUPABASE_DB_URL completa.
