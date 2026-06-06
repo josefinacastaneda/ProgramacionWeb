@@ -32,6 +32,11 @@ interface Resena {
   fecha: string;
 }
 
+// Texto del placeholder cuando un producto no tiene foto: el nombre sin emojis.
+function nombrePlaceholder(nombre: string): string {
+  return nombre.replace(/[^\p{L}\p{N}\s]/gu, '').trim() || 'FINALOOK';
+}
+
 // Mezcla un array sin mutar el original (para productos relacionados).
 function mezclar<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -147,8 +152,11 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ── Guía de talles ──
   const [guiaAbierta, setGuiaAbierta] = useState(false);
 
-  // ── Programa de referidos ──
-  const [refSuffix, setRefSuffix] = useState('');
+  // ── Persistencia (localStorage): evita guardar antes de hidratar. ──
+  const [hidratado, setHidratado] = useState(false);
+
+  // ── Swipe en la galería del modal (móvil) ──
+  const touchStartX = useRef<number | null>(null);
 
   // ── Reseñas del producto en el modal ──
   const [resenas, setResenas] = useState<Resena[]>([]);
@@ -238,6 +246,38 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   }, []);
 
   // ────────────────────────────────────────────────
+  // Persistencia de carrito y favoritos (localStorage)
+  // ────────────────────────────────────────────────
+  // Recuperamos al montar (sólo en el cliente, después del render del server).
+  useEffect(() => {
+    try {
+      const c = localStorage.getItem('finalook_carrito');
+      if (c) setCarrito(JSON.parse(c) as CartItem[]);
+      const f = localStorage.getItem('finalook_favoritos');
+      if (f) setFavoritos(JSON.parse(f) as FavItem[]);
+    } catch {
+      // Datos corruptos: arrancamos vacíos.
+    }
+    setHidratado(true);
+  }, []);
+
+  // Guardamos cada vez que cambian (recién después de hidratar, para no pisar
+  // lo guardado con el estado inicial vacío).
+  useEffect(() => {
+    if (!hidratado) return;
+    try {
+      localStorage.setItem('finalook_carrito', JSON.stringify(carrito));
+    } catch {}
+  }, [carrito, hidratado]);
+
+  useEffect(() => {
+    if (!hidratado) return;
+    try {
+      localStorage.setItem('finalook_favoritos', JSON.stringify(favoritos));
+    } catch {}
+  }, [favoritos, hidratado]);
+
+  // ────────────────────────────────────────────────
   // Bloquear scroll del body con overlays abiertos + tecla Escape
   // ────────────────────────────────────────────────
   useEffect(() => {
@@ -303,6 +343,18 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     setModalColor(col);
     setModalImgs(col.imagenes);
     setModalImgIdx(0);
+  }
+  // Swipe táctil: deslizar a los costados cambia la foto (además de las flechas).
+  function onGaleriaTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function onGaleriaTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) < 40) return; // umbral para distinguir de un tap
+    if (dx < 0) modalNext();
+    else modalPrev();
   }
 
   // ────────────────────────────────────────────────
@@ -459,25 +511,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   }
 
   // ────────────────────────────────────────────────
-  // REFERIDOS
-  // ────────────────────────────────────────────────
-  const referidoCodigo =
-    emailCompradorValido && refSuffix
-      ? (comprador.email.trim().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 4) || 'fina') +
-        refSuffix
-      : '';
-
-  async function copiarReferido() {
-    if (!referidoCodigo) return;
-    try {
-      await navigator.clipboard.writeText(referidoCodigo);
-      mostrarToast('Código de referido copiado');
-    } catch {
-      mostrarToast('No se pudo copiar el código');
-    }
-  }
-
-  // ────────────────────────────────────────────────
   // RESEÑAS
   // ────────────────────────────────────────────────
   const ratingPromedio = resenas.length
@@ -567,27 +600,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       .catch(() => {});
   }, [modalProd]);
 
-  // Generar el sufijo aleatorio del código de referido cuando el email es válido.
-  useEffect(() => {
-    if (emailCompradorValido && !refSuffix) {
-      setRefSuffix(String(Math.floor(1000 + Math.random() * 9000)));
-    }
-    if (!emailCompradorValido && refSuffix) {
-      setRefSuffix('');
-    }
-  }, [emailCompradorValido, refSuffix]);
-
-  // Persistir el código de referido generado.
-  useEffect(() => {
-    if (!referidoCodigo) return;
-    fetch('/api/referidos', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codigo: referidoCodigo, email: comprador.email.trim() }),
-    }).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [referidoCodigo]);
-
   // ────────────────────────────────────────────────
   // FAVORITOS
   // ────────────────────────────────────────────────
@@ -615,6 +627,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       ...favoritos.map((it) => ({ producto: it.producto, talle: '—', color: null, imgSrc: it.imgSrc })),
     ]);
     mostrarToast(`${favoritos.length} prenda/s movida/s al carrito`);
+    // Al pasar al carrito, ya no quedan en favoritos.
+    setFavoritos([]);
   }
 
   // ────────────────────────────────────────────────
@@ -914,21 +928,29 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                         if (e.key === 'Enter') abrirModal(prod);
                       }}
                     >
-                      <img
-                        src={prod.imagenes[idx]}
-                        alt={`${prod.nombre} — ${prod.categoria} de la colección FINALOOK`}
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.style.display = 'flex';
-                        }}
-                        onLoad={(e) => {
-                          e.currentTarget.style.display = 'block';
-                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                          if (fb) fb.style.display = 'none';
-                        }}
-                      />
-                      <div className="img-fallback" aria-hidden="true" />
+                      {prod.imagenes.length > 0 && (
+                        <img
+                          src={prod.imagenes[idx]}
+                          alt={`${prod.nombre} — ${prod.categoria} de la colección FINALOOK`}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fb) fb.style.display = 'flex';
+                          }}
+                          onLoad={(e) => {
+                            e.currentTarget.style.display = 'block';
+                            const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fb) fb.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div
+                        className="img-fallback"
+                        style={prod.imagenes.length === 0 ? { display: 'flex' } : undefined}
+                        aria-hidden="true"
+                      >
+                        {nombrePlaceholder(prod.nombre)}
+                      </div>
 
                       {prod.badge && <span className="producto-badge">{prod.badge}</span>}
 
@@ -1195,18 +1217,31 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       <div className={`modal-overlay${modalProd ? ' abierto' : ''}`} role="dialog" aria-modal="true" aria-label="Detalle del producto">
         {modalProd && (
           <>
-            <div className="modal-galeria" aria-label="Imágenes del producto">
-              <img
-                key={`${modalProd.id}-${modalColor?.nombre ?? ''}-${modalImgIdx}`}
-                src={modalImgs[modalImgIdx]}
-                alt={`${modalProd.nombre} — foto ${modalImgIdx + 1} de ${modalImgs.length}`}
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                  const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                  if (fb) fb.style.display = 'flex';
-                }}
-              />
-              <div className="img-fallback" aria-hidden="true" />
+            <div
+              className="modal-galeria"
+              aria-label="Imágenes del producto"
+              onTouchStart={onGaleriaTouchStart}
+              onTouchEnd={onGaleriaTouchEnd}
+            >
+              {modalImgs.length > 0 && (
+                <img
+                  key={`${modalProd.id}-${modalColor?.nombre ?? ''}-${modalImgIdx}`}
+                  src={modalImgs[modalImgIdx]}
+                  alt={`${modalProd.nombre} — foto ${modalImgIdx + 1} de ${modalImgs.length}`}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                    if (fb) fb.style.display = 'flex';
+                  }}
+                />
+              )}
+              <div
+                className="img-fallback"
+                style={modalImgs.length === 0 ? { display: 'flex' } : undefined}
+                aria-hidden="true"
+              >
+                {nombrePlaceholder(modalProd.nombre)}
+              </div>
               {modalImgs.length > 1 && (
                 <>
                   <button className="modal-arrow modal-arrow-prev" onClick={modalPrev} aria-label="Imagen anterior">
@@ -1511,21 +1546,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               onChange={(e) => setCampoComprador('email', e.target.value)}
             />
           </div>
-
-          {referidoCodigo && (
-            <div className="referido-box">
-              <span className="referido-label">Tu código de referido</span>
-              <div className="referido-codigo-row">
-                <span className="referido-codigo">{referidoCodigo}</span>
-                <button type="button" className="referido-copiar" onClick={copiarReferido}>
-                  Copiar código
-                </button>
-              </div>
-              <p className="referido-texto">
-                Compartí tu código y tu amigo obtiene 10% off en su primera compra.
-              </p>
-            </div>
-          )}
 
           <div className="checkout-field">
             <label className="checkout-label" htmlFor="co-tel">
