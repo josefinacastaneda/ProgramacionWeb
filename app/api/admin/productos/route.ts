@@ -16,6 +16,7 @@ interface ProductoBody {
   stock?: Record<string, number>;
   badge?: string | null;
   activo?: boolean;
+  imagenes?: string[];
 }
 
 function noAutorizado() {
@@ -34,6 +35,7 @@ function filaDesdeBody(b: ProductoBody) {
     stock: b.stock && typeof b.stock === 'object' ? b.stock : {},
     badge: b.badge?.trim() ? b.badge.trim() : null,
     activo: b.activo ?? true,
+    imagenes: Array.isArray(b.imagenes) ? b.imagenes : [],
   };
 }
 

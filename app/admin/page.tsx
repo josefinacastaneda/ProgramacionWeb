@@ -13,6 +13,7 @@ interface ProductoRow {
   stock: Record<string, number> | null;
   badge: string | null;
   activo: boolean;
+  imagenes: string[] | null;
 }
 
 interface PedidoRow {
@@ -45,6 +46,7 @@ interface FormProducto {
   stock: Record<string, number>;
   badge: string;
   activo: boolean;
+  imagenes: string[];
 }
 
 const FORM_VACIO: FormProducto = {
@@ -57,6 +59,7 @@ const FORM_VACIO: FormProducto = {
   stock: {},
   badge: '',
   activo: true,
+  imagenes: [],
 };
 
 export default function AdminPage() {
@@ -73,6 +76,7 @@ export default function AdminPage() {
 
   const [form, setForm] = useState<FormProducto | null>(null);
   const [guardando, setGuardando] = useState(false);
+  const [subiendoImg, setSubiendoImg] = useState(false);
 
   const [cuponCodigo, setCuponCodigo] = useState('');
   const [cuponDescuento, setCuponDescuento] = useState('');
@@ -139,6 +143,7 @@ export default function AdminPage() {
       stock: p.stock ?? {},
       badge: p.badge ?? '',
       activo: p.activo,
+      imagenes: p.imagenes ?? [],
     });
   }
 
@@ -154,6 +159,37 @@ export default function AdminPage() {
   const tallesDelForm = form
     ? form.tallesCsv.split(',').map((t) => t.trim()).filter(Boolean)
     : [];
+
+  // Sube las imágenes elegidas a Supabase Storage y guarda sus URLs en el form.
+  async function subirImagenes(archivos: FileList | null) {
+    if (!form || !archivos || archivos.length === 0) return;
+    setSubiendoImg(true);
+    setMensaje('');
+    try {
+      const fd = new FormData();
+      Array.from(archivos).forEach((f) => fd.append('files', f));
+      // No seteamos Content-Type: el browser arma el boundary del multipart.
+      const res = await fetch('/api/admin/upload', {
+        method: 'POST',
+        headers: { 'x-admin-password': password },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.urls) {
+        setMensaje(data.error ?? 'No se pudieron subir las imágenes.');
+        return;
+      }
+      setForm((f) => (f ? { ...f, imagenes: [...f.imagenes, ...data.urls] } : f));
+    } catch {
+      setMensaje('Error al subir las imágenes.');
+    } finally {
+      setSubiendoImg(false);
+    }
+  }
+
+  function quitarImagen(url: string) {
+    setForm((f) => (f ? { ...f, imagenes: f.imagenes.filter((u) => u !== url) } : f));
+  }
 
   async function guardarProducto(e: React.FormEvent) {
     e.preventDefault();
@@ -172,6 +208,7 @@ export default function AdminPage() {
       stock: Object.fromEntries(talles.map((t) => [t, Number(form.stock[t]) || 0])),
       badge: form.badge,
       activo: form.activo,
+      imagenes: form.imagenes,
     };
     try {
       const res = await fetch('/api/admin/productos', {
@@ -350,6 +387,41 @@ export default function AdminPage() {
                   onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
                 />
               </label>
+
+              <div className="admin-imagenes">
+                <span className="admin-label-text">Imágenes del producto</span>
+                {form.imagenes.length > 0 && (
+                  <div className="admin-img-grid">
+                    {form.imagenes.map((url) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <div key={url} className="admin-img-thumb">
+                        <img src={url} alt="Imagen del producto" />
+                        <button
+                          type="button"
+                          className="admin-img-quitar"
+                          onClick={() => quitarImagen(url)}
+                          aria-label="Quitar imagen"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="admin-img-upload">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    disabled={subiendoImg}
+                    onChange={(e) => {
+                      subirImagenes(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                  {subiendoImg ? 'Subiendo…' : 'Subir imágenes'}
+                </label>
+              </div>
 
               {tallesDelForm.length > 0 && (
                 <div className="admin-stock">
