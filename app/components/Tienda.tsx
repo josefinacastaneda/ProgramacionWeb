@@ -114,6 +114,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const [calcPais, setCalcPais] = useState('');
   const [calcResultado, setCalcResultado] = useState<string | null>(null);
   const [comprando, setComprando] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
 
   // ── Checkout: datos del comprador ──
   const [checkoutAbierto, setCheckoutAbierto] = useState(false);
@@ -494,6 +495,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       return;
     }
     setComprando(true);
+    setCheckoutError('');
     try {
       const items = carrito.map((it) => ({
         id: it.producto.id,
@@ -515,7 +517,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       window.location.href = data.init_point;
     } catch (err) {
       console.error('Error al iniciar el pago:', err);
-      mostrarToast('No se pudo iniciar el pago. Revisá las credenciales de MercadoPago.');
+      setCheckoutError('No pudimos iniciar el pago. Verificá tu conexión e intentá de nuevo.');
+      mostrarToast('No se pudo iniciar el pago.');
       setComprando(false);
     }
   }
@@ -1805,8 +1808,13 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <span className="sidebar-total-precio">{formatearPrecio(totalFinal)}</span>
           </div>
           <button className="btn-checkout" onClick={checkout} disabled={comprando || !checkoutValido}>
-            {comprando ? 'Redirigiendo…' : 'Pagar con MercadoPago'}
+            {comprando ? 'Procesando…' : checkoutError ? 'Reintentar pago' : 'Pagar con MercadoPago'}
           </button>
+          {checkoutError && (
+            <p className="checkout-error" role="alert">
+              {checkoutError}
+            </p>
+          )}
           {!checkoutValido && (
             <p className="checkout-aviso">
               {entrega === 'retiro'

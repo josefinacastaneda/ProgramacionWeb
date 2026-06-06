@@ -967,6 +967,12 @@ footer {
   margin-top: 0.9rem; font-size: 0.6rem; letter-spacing: 0.08em;
   text-align: center; color: var(--marfil-dim);
 }
+.checkout-error {
+  margin-top: 0.9rem; padding: 0.7rem 0.9rem;
+  font-size: 0.68rem; line-height: 1.5; text-align: center;
+  color: #e07a6b; background: rgba(192,57,43,0.08);
+  border: 1px solid rgba(192,57,43,0.35);
+}
 
 /* ── Forma de entrega: envío vs retiro ── */
 .entrega-opciones { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -1684,3 +1690,31 @@ select.checkout-input {
 .admin-pill.ok   { color: #6FCF97; border-color: rgba(111,207,151,0.4); background: rgba(111,207,151,0.08); }
 .admin-pill.pend { color: #E2C067; border-color: rgba(226,192,103,0.4); background: rgba(226,192,103,0.08); }
 .admin-pill.off  { color: #E07A7A; border-color: rgba(224,122,122,0.4); background: rgba(224,122,122,0.08); }
+
+/* ── Estados de carga / error del catálogo ── */
+.catalogo-cargando,
+.catalogo-error {
+  min-height: 100dvh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 1.2rem; text-align: center; padding: 2rem;
+  background: var(--negro); color: var(--marfil);
+}
+.catalogo-spinner {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 2px solid var(--negro-borde);
+  border-top-color: var(--denim-claro);
+  animation: catalogo-girar 0.8s linear infinite;
+}
+@keyframes catalogo-girar { to { transform: rotate(360deg); } }
+.catalogo-cargando-texto {
+  font-size: 0.62rem; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--marfil-dim);
+}
+.catalogo-error-titulo {
+  font-family: var(--font-display); font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 300; letter-spacing: 0.04em;
+}
+.catalogo-error-texto {
+  font-size: 0.8rem; color: var(--marfil-dim); letter-spacing: 0.05em;
+}

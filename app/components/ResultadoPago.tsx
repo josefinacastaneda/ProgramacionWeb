@@ -36,7 +36,7 @@ export default function ResultadoPago({
   return (
     <main
       style={{
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: 'var(--negro)',
         color: 'var(--marfil)',
         display: 'flex',

@@ -40,5 +40,15 @@ async function obtenerProductos(): Promise<Producto[]> {
 
 export default async function Home() {
   const productos = await obtenerProductos();
+  // Si por algún motivo no hay nada para mostrar, avisamos en vez de
+  // renderizar una tienda vacía.
+  if (productos.length === 0) {
+    return (
+      <main className="catalogo-error">
+        <p className="catalogo-error-titulo">No pudimos cargar los productos</p>
+        <p className="catalogo-error-texto">Recargá la página en unos segundos.</p>
+      </main>
+    );
+  }
   return <Tienda productos={productos} />;
 }

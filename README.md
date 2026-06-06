@@ -17,7 +17,47 @@ Tienda de denim con estética editorial oscura. E-commerce construido con Next.j
 - Stock por talle: badges de "últimas unidades" y talles agotados.
 - Checkout con MercadoPago; el webhook guarda el pedido y descuenta stock al aprobarse el pago.
 - Reseñas por producto (promedio, listado y formulario) persistidas en Supabase.
-- Programa de referidos, guía de talles, productos relacionados, prueba social y botón flotante de WhatsApp.
+- Guía de talles, productos relacionados, prueba social y botón flotante de WhatsApp.
+- Panel admin (`/admin`) para gestionar productos, stock, cupones, pedidos y subir imágenes.
+
+## Arquitectura
+
+Flujo general: el navegador habla con el server de Next.js (Server Components +
+Route Handlers), que a su vez consulta Supabase (Postgres + Storage) y MercadoPago.
+
+```mermaid
+flowchart LR
+  Cliente["Navegador<br/>(Tienda / Admin)"]
+  Next["Next.js<br/>Server Components + API Routes"]
+  Supa[("Supabase<br/>Postgres + Storage")]
+  MP["MercadoPago<br/>Checkout Pro"]
+
+  Cliente -->|"ver catálogo, carrito"| Next
+  Next -->|"leer productos / stock"| Supa
+  Cliente -->|"POST /api/create-preference"| Next
+  Next -->|"crear preferencia"| MP
+  MP -->|"init_point (redirect)"| Cliente
+  Cliente -->|"paga en"| MP
+  MP -->|"back_urls: /gracias /pendiente /error"| Cliente
+```
+
+Flujo del webhook (asíncrono, lo dispara MercadoPago al confirmarse el pago):
+
+```mermaid
+flowchart LR
+  MP["MercadoPago"]
+  WH["POST /api/webhook"]
+  Supa[("Supabase")]
+
+  MP -->|"notificación de pago"| WH
+  WH -->|"Payment.get(id)"| MP
+  WH -->|"INSERT pedido (UNIQUE mp_payment_id)"| Supa
+  WH -->|"si approved: descontar stock"| Supa
+```
+
+El `UNIQUE` sobre `mp_payment_id` hace el webhook idempotente: si MercadoPago
+reintenta la misma notificación, el segundo insert falla (23505) y no se vuelve
+a descontar stock ni se duplica el pedido.
 
 ## Requisitos previos
 
@@ -104,9 +144,12 @@ automáticamente como `notification_url` al crear la preferencia.
 
 ## Panel admin (`/admin`)
 
-> **Pendiente:** la ruta `/admin` está reservada para el panel de
-> administración (gestión de productos, stock y pedidos) y todavía no está
-> implementada.
+Panel protegido por contraseña (header `x-admin-password`, definida en
+`ADMIN_PASSWORD`). Permite:
+
+- Crear, editar, activar/desactivar productos y ajustar stock por talle.
+- Subir imágenes a Supabase Storage (bucket `productos`).
+- Crear cupones de descuento y revisar los pedidos recibidos.
 
 ## CI/CD
 
