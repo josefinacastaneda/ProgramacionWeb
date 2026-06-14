@@ -652,7 +652,18 @@ nav {
   color: var(--marfil-dim); display: block; margin-bottom: 0.7rem;
 }
 /* Talles modal */
-.modal-talles { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.modal-talles { display: flex; gap: 0.5rem; flex-wrap: wrap; border-radius: 4px; }
+/* Flash cuando el cliente intenta agregar sin elegir talle. */
+.modal-talles.resaltar {
+  animation: talle-flash 1.6s ease;
+}
+.modal-talles.resaltar .modal-talle-btn:not(.agotado) {
+  border-color: var(--denim-claro);
+}
+@keyframes talle-flash {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  20%, 60% { box-shadow: 0 0 0 2px var(--denim-claro); }
+}
 .modal-talle-btn {
   min-width: 46px; height: 46px; padding: 0 0.85rem; background: none;
   border: 1px solid var(--negro-borde);
@@ -1513,6 +1524,24 @@ select.checkout-input {
   font-size: 0.8rem;
   margin-bottom: 1.4rem;
 }
+.admin-mensaje.ok {
+  background: rgba(111,207,151,0.1);
+  border-color: rgba(111,207,151,0.45);
+  color: #8fe0b0;
+}
+.admin-mensaje.error {
+  background: rgba(224,122,122,0.1);
+  border-color: rgba(224,122,122,0.45);
+  color: #e89a9a;
+}
+.admin-tab-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; margin-left: 0.45rem; padding: 0 4px;
+  border-radius: 999px; background: var(--denim); color: var(--marfil);
+  font-size: 0.58rem; letter-spacing: 0;
+}
+.admin-msg-cel { max-width: 360px; white-space: normal; line-height: 1.5; }
+.admin-no-leido td { background: var(--denim-tenue); }
 
 /* ── Secciones ── */
 .admin-seccion { margin-bottom: 2.5rem; }
@@ -1717,4 +1746,80 @@ select.checkout-input {
 }
 .catalogo-error-texto {
   font-size: 0.8rem; color: var(--marfil-dim); letter-spacing: 0.05em;
+}
+
+/* ============================================================
+   PANEL ADMIN — RESPONSIVE (móvil)
+============================================================ */
+@media (max-width: 760px) {
+  .admin { padding: 1.4rem 1rem 4rem; }
+  /* Header y "Salir" prolijos en una fila, sin desbordar. */
+  .admin-header { padding: 1rem 0; gap: 0.8rem; }
+  .admin-header .admin-titulo { font-size: 1.25rem; }
+  .admin-header .admin-btn-ghost { padding: 0.6rem 1rem; flex-shrink: 0; }
+
+  /* Tabs: scroll horizontal antes que romper el layout. */
+  .admin-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+  }
+  .admin-tabs::-webkit-scrollbar { display: none; }
+  .admin-tab { flex-shrink: 0; }
+
+  /* Formulario de producto en una sola columna. */
+  .admin-grid { grid-template-columns: 1fr; }
+  .admin-form { padding: 1.1rem; }
+  .admin-form-inline { flex-direction: column; align-items: stretch; }
+  .admin-form-inline .admin-input { width: 100%; }
+  .admin-form-acciones { flex-direction: column; }
+  .admin-form-acciones .admin-btn,
+  .admin-form-acciones .admin-btn-ghost { width: 100%; }
+
+  /* Tablas como tarjetas apiladas: cada fila es una "card" y cada celda
+     muestra su etiqueta (data-label) a la izquierda. */
+  .admin-tabla-wrap { border: none; overflow: visible; }
+  .admin-tabla { min-width: 0; }
+  .admin-tabla thead { display: none; }
+  .admin-tabla,
+  .admin-tabla tbody,
+  .admin-tabla tr,
+  .admin-tabla td { display: block; width: 100%; }
+  .admin-tabla tr {
+    background: var(--negro-card);
+    border: 1px solid var(--negro-borde);
+    border-radius: 4px;
+    padding: 0.4rem 0.9rem;
+    margin-bottom: 0.9rem;
+  }
+  .admin-tabla td {
+    border-bottom: 1px solid var(--negro-borde);
+    padding: 0.6rem 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    text-align: right;
+  }
+  .admin-tabla tr td:last-child { border-bottom: none; }
+  .admin-tabla td::before {
+    content: attr(data-label);
+    font-size: 0.6rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--marfil-dim);
+    text-align: left;
+    flex-shrink: 0;
+  }
+  .admin-msg-cel { max-width: none; text-align: right; }
+  /* La fila de acciones ocupa todo el ancho y los botones se reparten. */
+  .admin-acciones-col {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    white-space: normal;
+  }
+  .admin-acciones-col::before { align-self: center; }
 }

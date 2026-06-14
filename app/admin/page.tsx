@@ -33,7 +33,19 @@ interface CuponRow {
   activo: boolean;
 }
 
-type Tab = 'productos' | 'pedidos' | 'cupones';
+interface MensajeRow {
+  id: string;
+  nombre: string | null;
+  email: string | null;
+  mensaje: string | null;
+  leido: boolean;
+  created_at: string;
+}
+
+type Tab = 'productos' | 'pedidos' | 'mensajes' | 'cupones';
+
+// Tamaño máximo por imagen al subir (5 MB).
+const MAX_IMG_BYTES = 5 * 1024 * 1024;
 
 interface FormProducto {
   id?: string;
@@ -72,7 +84,11 @@ export default function AdminPage() {
   const [productos, setProductos] = useState<ProductoRow[]>([]);
   const [pedidos, setPedidos] = useState<PedidoRow[]>([]);
   const [cupones, setCupones] = useState<CuponRow[]>([]);
-  const [mensaje, setMensaje] = useState('');
+  const [mensajes, setMensajes] = useState<MensajeRow[]>([]);
+  // Aviso global: texto + si es de éxito (ok) o de error.
+  const [aviso, setAviso] = useState<{ texto: string; ok: boolean } | null>(null);
+  const avisarOk = useCallback((texto: string) => setAviso({ texto, ok: true }), []);
+  const avisarError = useCallback((texto: string) => setAviso({ texto, ok: false }), []);
 
   const [form, setForm] = useState<FormProducto | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -88,18 +104,20 @@ export default function AdminPage() {
 
   const cargarTodo = useCallback(async () => {
     try {
-      const [rp, rpe, rc] = await Promise.all([
+      const [rp, rpe, rc, rm] = await Promise.all([
         fetch('/api/admin/productos', { headers: headers() }),
         fetch('/api/admin/pedidos', { headers: headers() }),
         fetch('/api/admin/cupones', { headers: headers() }),
+        fetch('/api/admin/mensajes', { headers: headers() }),
       ]);
       if (rp.ok) setProductos((await rp.json()).productos ?? []);
       if (rpe.ok) setPedidos((await rpe.json()).pedidos ?? []);
       if (rc.ok) setCupones((await rc.json()).cupones ?? []);
+      if (rm.ok) setMensajes((await rm.json()).mensajes ?? []);
     } catch {
-      setMensaje('No se pudieron cargar los datos.');
+      avisarError('No se pudieron cargar los datos.');
     }
-  }, [headers]);
+  }, [headers, avisarError]);
 
   useEffect(() => {
     if (unlocked) cargarTodo();
@@ -163,8 +181,14 @@ export default function AdminPage() {
   // Sube las imágenes elegidas a Supabase Storage y guarda sus URLs en el form.
   async function subirImagenes(archivos: FileList | null) {
     if (!form || !archivos || archivos.length === 0) return;
+    // Avisamos si alguna imagen supera el límite, sin intentar subirla.
+    const pesada = Array.from(archivos).find((f) => f.size > MAX_IMG_BYTES);
+    if (pesada) {
+      avisarError(`"${pesada.name}" pesa más de 5 MB. Subí una imagen más liviana.`);
+      return;
+    }
     setSubiendoImg(true);
-    setMensaje('');
+    setAviso(null);
     try {
       const fd = new FormData();
       Array.from(archivos).forEach((f) => fd.append('files', f));
@@ -176,12 +200,13 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok || !data.urls) {
-        setMensaje(data.error ?? 'No se pudieron subir las imágenes.');
+        avisarError(data.error ?? 'No se pudieron subir las imágenes.');
         return;
       }
       setForm((f) => (f ? { ...f, imagenes: [...f.imagenes, ...data.urls] } : f));
+      avisarOk(`${data.urls.length} imagen/es subida/s.`);
     } catch {
-      setMensaje('Error al subir las imágenes.');
+      avisarError('Error al subir las imágenes.');
     } finally {
       setSubiendoImg(false);
     }
@@ -194,14 +219,28 @@ export default function AdminPage() {
   async function guardarProducto(e: React.FormEvent) {
     e.preventDefault();
     if (!form) return;
-    setGuardando(true);
-    setMensaje('');
+    // Validación de campos obligatorios antes de pegarle al server.
+    const precioNum = Number(form.precio);
+    if (!form.nombre.trim()) return avisarError('El nombre es obligatorio.');
+    if (!form.categoria.trim()) return avisarError('La categoría es obligatoria.');
+    if (!form.precio.trim() || !Number.isFinite(precioNum) || precioNum <= 0) {
+      return avisarError('El precio debe ser un número mayor a 0.');
+    }
     const talles = tallesDelForm;
+    // El stock de cada talle debe ser un entero >= 0.
+    for (const t of talles) {
+      const n = Number(form.stock[t]);
+      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+        return avisarError(`El stock del talle ${t} debe ser un número entero válido.`);
+      }
+    }
+    setGuardando(true);
+    setAviso(null);
     const payload = {
       id: form.id,
-      nombre: form.nombre,
-      categoria: form.categoria,
-      precio: Number(form.precio) || 0,
+      nombre: form.nombre.trim(),
+      categoria: form.categoria.trim(),
+      precio: precioNum,
       descripcion: form.descripcion,
       material: form.material,
       talles,
@@ -211,20 +250,22 @@ export default function AdminPage() {
       imagenes: form.imagenes,
     };
     try {
+      const editando = !!form.id;
       const res = await fetch('/api/admin/productos', {
-        method: form.id ? 'PUT' : 'POST',
+        method: editando ? 'PUT' : 'POST',
         headers: headers(),
         body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMensaje(data.error ?? 'No se pudo guardar.');
+        avisarError(data.error ?? 'No se pudo guardar.');
       } else {
         setForm(null);
         await cargarTodo();
+        avisarOk(editando ? 'Producto actualizado.' : 'Producto creado.');
       }
     } catch {
-      setMensaje('Error al guardar el producto.');
+      avisarError('Error al guardar el producto.');
     } finally {
       setGuardando(false);
     }
@@ -239,29 +280,52 @@ export default function AdminPage() {
       });
       await cargarTodo();
     } catch {
-      setMensaje('No se pudo cambiar el estado.');
+      avisarError('No se pudo cambiar el estado.');
+    }
+  }
+
+  async function marcarLeido(m: MensajeRow) {
+    try {
+      const res = await fetch('/api/admin/mensajes', {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ id: m.id, leido: true }),
+      });
+      if (!res.ok) {
+        avisarError('No se pudo marcar como leído.');
+        return;
+      }
+      setMensajes((prev) => prev.map((x) => (x.id === m.id ? { ...x, leido: true } : x)));
+    } catch {
+      avisarError('No se pudo marcar como leído.');
     }
   }
 
   async function crearCupon(e: React.FormEvent) {
     e.preventDefault();
-    setMensaje('');
+    const descNum = Number(cuponDescuento);
+    if (!cuponCodigo.trim()) return avisarError('Ingresá un código de cupón.');
+    if (!Number.isFinite(descNum) || descNum <= 0 || descNum > 100) {
+      return avisarError('El descuento debe ser un número entre 1 y 100.');
+    }
+    setAviso(null);
     try {
       const res = await fetch('/api/admin/cupones', {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ codigo: cuponCodigo, descuento: Number(cuponDescuento) }),
+        body: JSON.stringify({ codigo: cuponCodigo, descuento: descNum }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setMensaje(data.error ?? 'No se pudo crear el cupón.');
+        avisarError(data.error ?? 'No se pudo crear el cupón.');
       } else {
         setCuponCodigo('');
         setCuponDescuento('');
         await cargarTodo();
+        avisarOk('Cupón creado.');
       }
     } catch {
-      setMensaje('Error al crear el cupón.');
+      avisarError('Error al crear el cupón.');
     }
   }
 
@@ -298,18 +362,26 @@ export default function AdminPage() {
       </header>
 
       <nav className="admin-tabs">
-        {(['productos', 'pedidos', 'cupones'] as Tab[]).map((t) => (
-          <button
-            key={t}
-            className={`admin-tab${tab === t ? ' activo' : ''}`}
-            onClick={() => setTab(t)}
-          >
-            {t}
-          </button>
-        ))}
+        {(['productos', 'pedidos', 'mensajes', 'cupones'] as Tab[]).map((t) => {
+          const sinLeer = t === 'mensajes' ? mensajes.filter((m) => !m.leido).length : 0;
+          return (
+            <button
+              key={t}
+              className={`admin-tab${tab === t ? ' activo' : ''}`}
+              onClick={() => setTab(t)}
+            >
+              {t}
+              {sinLeer > 0 && <span className="admin-tab-badge">{sinLeer}</span>}
+            </button>
+          );
+        })}
       </nav>
 
-      {mensaje && <p className="admin-mensaje">{mensaje}</p>}
+      {aviso && (
+        <p className={`admin-mensaje${aviso.ok ? ' ok' : ' error'}`} role="status">
+          {aviso.texto}
+        </p>
+      )}
 
       {/* ─── PRODUCTOS ─── */}
       {tab === 'productos' && (
@@ -481,14 +553,14 @@ export default function AdminPage() {
               <tbody>
                 {productos.map((p) => (
                   <tr key={p.id} className={p.activo ? '' : 'admin-inactivo'}>
-                    <td>{p.nombre}</td>
-                    <td>${p.precio.toLocaleString('es-AR')}</td>
-                    <td>
+                    <td data-label="Nombre">{p.nombre}</td>
+                    <td data-label="Precio">${p.precio.toLocaleString('es-AR')}</td>
+                    <td data-label="Stock">
                       {Object.entries(p.stock ?? {})
                         .map(([t, n]) => `${t}:${n}`)
                         .join('  ') || '—'}
                     </td>
-                    <td>
+                    <td data-label="Estado">
                       <span className={`admin-pill ${p.activo ? 'ok' : 'off'}`}>
                         {p.activo ? 'Activo' : 'Inactivo'}
                       </span>
@@ -534,11 +606,11 @@ export default function AdminPage() {
               <tbody>
                 {pedidos.map((pe) => (
                   <tr key={pe.id}>
-                    <td>{(pe.created_at ?? '').slice(0, 10)}</td>
-                    <td>{pe.comprador_nombre ?? '—'}</td>
-                    <td>{pe.comprador_email ?? '—'}</td>
-                    <td>${(pe.total ?? 0).toLocaleString('es-AR')}</td>
-                    <td>
+                    <td data-label="Fecha">{(pe.created_at ?? '').slice(0, 10)}</td>
+                    <td data-label="Comprador">{pe.comprador_nombre ?? '—'}</td>
+                    <td data-label="Email">{pe.comprador_email ?? '—'}</td>
+                    <td data-label="Total">${(pe.total ?? 0).toLocaleString('es-AR')}</td>
+                    <td data-label="Estado">
                       <span className={`admin-pill ${estadoClase(pe.estado)}`}>
                         {pe.estado ?? '—'}
                       </span>
@@ -549,6 +621,64 @@ export default function AdminPage() {
                   <tr>
                     <td colSpan={5} className="admin-vacio">
                       Todavía no hay pedidos.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* ─── MENSAJES ─── */}
+      {tab === 'mensajes' && (
+        <section className="admin-seccion">
+          <h2 className="admin-h2">Mensajes</h2>
+          <div className="admin-tabla-wrap">
+            <table className="admin-tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Nombre</th>
+                  <th>Email</th>
+                  <th>Mensaje</th>
+                  <th>Estado</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {mensajes.map((m) => (
+                  <tr key={m.id} className={m.leido ? '' : 'admin-no-leido'}>
+                    <td data-label="Fecha">{(m.created_at ?? '').slice(0, 10)}</td>
+                    <td data-label="Nombre">{m.nombre ?? '—'}</td>
+                    <td data-label="Email">{m.email ?? '—'}</td>
+                    <td data-label="Mensaje" className="admin-msg-cel">{m.mensaje ?? '—'}</td>
+                    <td data-label="Estado">
+                      <span className={`admin-pill ${m.leido ? 'ok' : 'pend'}`}>
+                        {m.leido ? 'Leído' : 'Nuevo'}
+                      </span>
+                    </td>
+                    <td className="admin-acciones-col">
+                      {!m.leido && (
+                        <button className="admin-link" onClick={() => marcarLeido(m)}>
+                          Marcar como leído
+                        </button>
+                      )}
+                      {m.email && (
+                        <a
+                          className="admin-link"
+                          href={`mailto:${m.email}?subject=${encodeURIComponent('Re: tu consulta en FINALOOK')}`}
+                        >
+                          Responder
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {mensajes.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="admin-vacio">
+                      Todavía no hay mensajes. (¿Corriste la migración 004 en Supabase?)
                     </td>
                   </tr>
                 )}
@@ -596,10 +726,10 @@ export default function AdminPage() {
               <tbody>
                 {cupones.map((c) => (
                   <tr key={c.id}>
-                    <td>{c.codigo}</td>
-                    <td>{c.descuento}%</td>
-                    <td>{c.usos}</td>
-                    <td>
+                    <td data-label="Código">{c.codigo}</td>
+                    <td data-label="Descuento">{c.descuento}%</td>
+                    <td data-label="Usos">{c.usos}</td>
+                    <td data-label="Estado">
                       <span className={`admin-pill ${c.activo ? 'ok' : 'off'}`}>
                         {c.activo ? 'Activo' : 'Inactivo'}
                       </span>

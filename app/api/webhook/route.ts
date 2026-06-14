@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { enviarAviso } from '@/lib/resend';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,6 +10,77 @@ interface Compra {
   producto_id: string;
   talle: string | null;
   cantidad: number;
+}
+
+interface DatosComprador {
+  nombre?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  calle?: string | null;
+  numero?: string | null;
+  ciudad?: string | null;
+  provincia?: string | null;
+  cp?: string | null;
+}
+
+// Arma y envía el email de aviso de nueva compra. No lanza nunca.
+async function avisarCompra(opts: {
+  compras: Compra[];
+  comprador: DatosComprador;
+  total: number;
+  entrega: string;
+  pais: string | null;
+}) {
+  const { compras, comprador, total, entrega, pais } = opts;
+
+  // Buscamos los nombres de los productos para que el email sea legible.
+  const ids = [...new Set(compras.map((c) => c.producto_id).filter(Boolean))];
+  const nombres: Record<string, string> = {};
+  if (ids.length > 0) {
+    const { data } = await supabaseAdmin.from('productos').select('id, nombre').in('id', ids);
+    for (const p of data ?? []) nombres[p.id as string] = p.nombre as string;
+  }
+
+  const filas = compras
+    .map((c) => {
+      const nombre = nombres[c.producto_id] ?? c.producto_id;
+      const talle = c.talle ? ` · Talle ${c.talle}` : '';
+      return `<li style="margin-bottom:6px">${nombre}${talle} — <strong>x${c.cantidad}</strong></li>`;
+    })
+    .join('');
+
+  const esRetiro = entrega === 'retiro';
+  const direccion = esRetiro
+    ? 'Retiro en local'
+    : [comprador.calle, comprador.numero, comprador.ciudad, comprador.provincia, comprador.cp]
+        .filter(Boolean)
+        .join(', ') || 'Sin datos de dirección';
+
+  const totalFmt = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(total);
+
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:560px;margin:0 auto">
+      <h1 style="font-size:20px">Nueva compra en FINALOOK 🛍️</h1>
+      <p><strong>Comprador:</strong> ${comprador.nombre ?? 'Sin nombre'}<br/>
+         <strong>Email:</strong> ${comprador.email ?? 'Sin email'}${
+           comprador.telefono ? `<br/><strong>Teléfono:</strong> ${comprador.telefono}` : ''
+         }</p>
+      <p><strong>Productos:</strong></p>
+      <ul style="padding-left:18px">${filas || '<li>Sin detalle</li>'}</ul>
+      <p><strong>Total pagado:</strong> ${totalFmt}</p>
+      <p><strong>Entrega:</strong> ${esRetiro ? 'Retiro en local' : `Envío${pais ? ` (${pais})` : ''}`}<br/>
+         <strong>Dirección:</strong> ${direccion}</p>
+    </div>`;
+
+  await enviarAviso({
+    subject: 'Nueva compra en FINALOOK 🛍️',
+    html,
+    replyTo: comprador.email ?? undefined,
+  });
 }
 
 // MercadoPago manda el id del pago de varias formas según el evento.
@@ -83,6 +155,7 @@ export async function POST(req: NextRequest) {
     compras?: Compra[];
     comprador?: Record<string, string>;
     pais?: string;
+    entrega?: string;
     cupon?: string | null;
   };
   const compras = Array.isArray(metadata.compras) ? metadata.compras : [];
@@ -134,9 +207,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No se pudo guardar el pedido' }, { status: 500 });
   }
 
-  // Solo descontamos stock la primera vez (insert exitoso) y si quedó aprobado.
+  // Solo descontamos stock y avisamos la primera vez (insert exitoso) y si
+  // quedó aprobado. El email va en su propio try/catch (vía enviarAviso) para
+  // que un fallo de Resend nunca rompa el webhook.
   if (insertado && estado === 'approved') {
     await descontarStock(compras);
+    try {
+      await avisarCompra({
+        compras,
+        comprador,
+        total: Math.round(payment.transaction_amount ?? 0),
+        entrega: metadata.entrega ?? 'envio',
+        pais: metadata.pais ?? null,
+      });
+    } catch (err) {
+      console.error('Webhook: fallo al enviar el email de aviso', (err as Error).message);
+    }
   }
 
   return NextResponse.json({ ok: true, estado });

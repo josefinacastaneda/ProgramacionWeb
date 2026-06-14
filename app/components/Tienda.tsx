@@ -25,6 +25,8 @@ interface CartItem {
 interface FavItem {
   producto: Producto;
   imgSrc: string;
+  talle: string;
+  color: string | null;
 }
 interface Resena {
   nombre: string;
@@ -101,6 +103,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const [modalImgIdx, setModalImgIdx] = useState(0);
   const [modalTalle, setModalTalle] = useState<string | null>(null);
   const [modalColor, setModalColor] = useState<ColorVariante | null>(null);
+  // Resalta (flashea) el selector de talle cuando falta elegirlo.
+  const [resaltarTalle, setResaltarTalle] = useState(false);
 
   // ── Toast ──
   const [toastMsg, setToastMsg] = useState('');
@@ -111,6 +115,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const [campos, setCampos] = useState({ nombre: '', email: '', mensaje: '' });
   const [errores, setErrores] = useState({ nombre: false, email: false, mensaje: false });
   const [formEnviado, setFormEnviado] = useState(false);
+  const [enviandoContacto, setEnviandoContacto] = useState(false);
   const [calcPais, setCalcPais] = useState('');
   const [calcResultado, setCalcResultado] = useState<string | null>(null);
   const [comprando, setComprando] = useState(false);
@@ -253,13 +258,25 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // Recuperamos al montar (sólo en el cliente, después del render del server).
   useEffect(() => {
     try {
+      // Un talle es válido si existe y no es el placeholder antiguo "—".
+      const talleValido = (t: unknown): t is string =>
+        typeof t === 'string' && t.trim() !== '' && t !== '—';
       const c = localStorage.getItem('finalook_carrito');
       if (c) {
         const items = JSON.parse(c) as CartItem[];
-        setCarrito(items.map((it) => ({ ...it, cantidad: it.cantidad ?? 1 })));
+        // Descartamos ítems viejos sin talle (formato anterior).
+        setCarrito(
+          items
+            .filter((it) => talleValido(it.talle))
+            .map((it) => ({ ...it, cantidad: it.cantidad ?? 1 })),
+        );
       }
       const f = localStorage.getItem('finalook_favoritos');
-      if (f) setFavoritos(JSON.parse(f) as FavItem[]);
+      if (f) {
+        const favs = JSON.parse(f) as FavItem[];
+        // Igual que el carrito: sólo conservamos favoritos con talle válido.
+        setFavoritos(favs.filter((it) => talleValido(it.talle)));
+      }
     } catch {
       // Datos corruptos: arrancamos vacíos.
     }
@@ -434,10 +451,21 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   function stockDe(prod: Producto, talle: string) {
     return stockMap[prod.id]?.[talle] ?? (prod.stock ? 0 : 99);
   }
+  // Flashea el selector de talle y avisa cuando falta elegirlo.
+  function pedirTalle(msg = 'Elegí un talle primero') {
+    mostrarToast(msg);
+    setResaltarTalle(true);
+    setTimeout(() => setResaltarTalle(false), 1600);
+  }
   function agregarDesdeModal() {
     if (!modalProd) return;
+    // Talle obligatorio (y color si el producto tiene variantes).
     if (!modalTalle) {
-      mostrarToast('Seleccioná un talle');
+      pedirTalle();
+      return;
+    }
+    if (modalProd.colores && !modalColor) {
+      mostrarToast('Elegí un color primero');
       return;
     }
     if (stockDe(modalProd, modalTalle) <= 0) {
@@ -488,6 +516,12 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   async function checkout() {
     if (carrito.length === 0) {
       mostrarToast('Tu carrito está vacío');
+      return;
+    }
+    // Ningún ítem puede quedar sin un talle válido.
+    const sinTalle = carrito.find((it) => !it.talle || it.talle.trim() === '' || it.talle === '—');
+    if (sinTalle) {
+      mostrarToast(`Elegí un talle para "${sinTalle.producto.nombre}" antes de pagar`);
       return;
     }
     if (!checkoutValido) {
@@ -661,26 +695,57 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   function esFavorito(id: string) {
     return favoritos.some((f) => f.producto.id === id);
   }
-  function toggleFavorito(prod: Producto, imgSrc: string) {
+  // Quita todos los favoritos de un producto (sin importar talle).
+  function quitarFavoritoProducto(id: string, nombre: string) {
+    setFavoritos((prev) => prev.filter((f) => f.producto.id !== id));
+    mostrarToast(`${nombre} removido de favoritos`);
+  }
+  // Guarda en favoritos validando talle (y color si hay variantes).
+  function guardarFavorito(prod: Producto, imgSrc: string, talle: string | null, color: string | null) {
+    if (!talle) {
+      pedirTalle();
+      return;
+    }
+    if (prod.colores && !color) {
+      mostrarToast('Elegí un color primero');
+      return;
+    }
     setFavoritos((prev) => {
-      const existe = prev.some((f) => f.producto.id === prod.id);
-      if (existe) {
-        mostrarToast(`${prod.nombre} removido de favoritos`);
-        return prev.filter((f) => f.producto.id !== prod.id);
+      if (prev.some((f) => f.producto.id === prod.id && f.talle === talle && f.color === color)) {
+        return prev; // ya estaba guardado
       }
       mostrarToast(`${prod.nombre} guardado en favoritos`);
-      return [...prev, { producto: prod, imgSrc }];
+      return [...prev, { producto: prod, imgSrc, talle, color }];
     });
+  }
+  // Botón corazón dentro del modal: usa el talle/color elegidos.
+  function toggleFavoritoModal() {
+    if (!modalProd) return;
+    if (esFavorito(modalProd.id)) {
+      quitarFavoritoProducto(modalProd.id, modalProd.nombre);
+      return;
+    }
+    const imgSrc = modalImgs[modalImgIdx] || modalProd.imagenes[0];
+    guardarFavorito(modalProd, imgSrc, modalTalle, modalColor ? modalColor.nombre : null);
+  }
+  // Corazón en la card de la grilla: si ya es favorito lo quita; si no, abre el
+  // modal para que se elija un talle antes de guardar.
+  function toggleFavoritoCard(prod: Producto) {
+    if (esFavorito(prod.id)) {
+      quitarFavoritoProducto(prod.id, prod.nombre);
+      return;
+    }
+    abrirModal(prod);
+    pedirTalle();
   }
   function moverFavsAlCarrito() {
     if (favoritos.length === 0) {
       mostrarToast('No tenés favoritos guardados');
       return;
     }
-    setCarrito((prev) => [
-      ...prev,
-      ...favoritos.map((it) => ({ producto: it.producto, talle: '—', color: null, imgSrc: it.imgSrc, cantidad: 1 })),
-    ]);
+    // Los favoritos ya tienen talle válido; los agregamos respetando la
+    // agrupación del carrito (mismo producto + talle + color suma cantidad).
+    favoritos.forEach((it) => agregarAlCarrito(it.producto, it.talle, it.color, it.imgSrc));
     mostrarToast(`${favoritos.length} prenda/s movida/s al carrito`);
     // Al pasar al carrito, ya no quedan en favoritos.
     setFavoritos([]);
@@ -743,7 +808,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ────────────────────────────────────────────────
   // FORMULARIO DE CONTACTO
   // ────────────────────────────────────────────────
-  function enviarContacto(e: React.FormEvent) {
+  async function enviarContacto(e: React.FormEvent) {
     e.preventDefault();
     const nuevos = {
       nombre: campos.nombre.trim().length < 2,
@@ -751,9 +816,26 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       mensaje: campos.mensaje.trim().length < 5,
     };
     setErrores(nuevos);
-    if (!nuevos.nombre && !nuevos.email && !nuevos.mensaje) {
+    if (nuevos.nombre || nuevos.email || nuevos.mensaje) return;
+    // Guardamos el mensaje en Supabase y disparamos el email de aviso.
+    setEnviandoContacto(true);
+    try {
+      const res = await fetch('/api/contacto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nombre: campos.nombre.trim(),
+          email: campos.email.trim(),
+          mensaje: campos.mensaje.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error('Fallo el envío');
       setFormEnviado(true);
       mostrarToast('Mensaje enviado con éxito');
+    } catch {
+      mostrarToast('No pudimos enviar el mensaje. Intentá de nuevo.');
+    } finally {
+      setEnviandoContacto(false);
     }
   }
 
@@ -1043,7 +1125,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                         aria-label={`Agregar ${prod.nombre} a favoritos`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleFavorito(prod, prod.imagenes[0]);
+                          toggleFavoritoCard(prod);
                         }}
                       >
                         <HeartIcon filled={fav} />
@@ -1215,8 +1297,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 <span className={`form-error${errores.mensaje ? ' visible' : ''}`}>Escribí tu mensaje antes de enviar.</span>
               </div>
 
-              <button type="submit" className="btn-enviar">
-                Enviar mensaje
+              <button type="submit" className="btn-enviar" disabled={enviandoContacto}>
+                {enviandoContacto ? 'Enviando…' : 'Enviar mensaje'}
               </button>
             </form>
           ) : (
@@ -1377,7 +1459,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                     Guía de talles
                   </button>
                 </div>
-                <div className="modal-talles">
+                <div className={`modal-talles${resaltarTalle ? ' resaltar' : ''}`}>
                   {modalProd.talles.map((t) => {
                     const st = stockDe(modalProd, t);
                     const agotado = st <= 0;
@@ -1406,7 +1488,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 <button
                   className={`btn-modal-fav${esFavorito(modalProd.id) ? ' activo' : ''}`}
                   aria-label="Agregar a favoritos"
-                  onClick={() => toggleFavorito(modalProd, modalImgs[modalImgIdx] || modalProd.imagenes[0])}
+                  onClick={toggleFavoritoModal}
                 >
                   <HeartIcon filled={esFavorito(modalProd.id)} />
                   Guardar
@@ -1848,7 +1930,10 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 </div>
                 <div className="sidebar-item-info">
                   <p className="sidebar-item-nombre">{it.producto.nombre}</p>
-                  <p className="sidebar-item-detalle">{it.producto.categoria}</p>
+                  <p className="sidebar-item-detalle">
+                    {[it.talle ? `Talle ${it.talle}` : '', it.color || ''].filter(Boolean).join(' · ') ||
+                      it.producto.categoria}
+                  </p>
                   <p className="sidebar-item-precio">{formatearPrecio(it.producto.precio)}</p>
                 </div>
                 <button
