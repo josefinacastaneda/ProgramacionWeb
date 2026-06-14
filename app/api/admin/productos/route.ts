@@ -91,3 +91,13 @@ export async function PATCH(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ producto: data });
 }
+
+// Elimina un producto por id.
+export async function DELETE(req: NextRequest) {
+  if (!esAdmin(req)) return noAutorizado();
+  const id = new URL(req.url).searchParams.get('id');
+  if (!id) return NextResponse.json({ error: 'Falta el id.' }, { status: 400 });
+  const { error } = await supabaseAdmin.from('productos').delete().eq('id', id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

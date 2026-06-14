@@ -301,12 +301,73 @@ export default function AdminPage() {
     }
   }
 
+  async function eliminarProducto(p: ProductoRow) {
+    if (!confirm(`¿Seguro que querés eliminar el producto "${p.nombre}"?`)) return;
+    try {
+      const res = await fetch(`/api/admin/productos?id=${encodeURIComponent(p.id)}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        avisarError(data.error ?? 'No se pudo eliminar el producto.');
+        return;
+      }
+      await cargarTodo();
+      avisarOk('Producto eliminado.');
+    } catch {
+      avisarError('Error al eliminar el producto.');
+    }
+  }
+
+  async function toggleCupon(c: CuponRow) {
+    try {
+      const res = await fetch('/api/admin/cupones', {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ id: c.id, activo: !c.activo }),
+      });
+      if (!res.ok) {
+        avisarError('No se pudo cambiar el estado del cupón.');
+        return;
+      }
+      await cargarTodo();
+      avisarOk(c.activo ? 'Cupón desactivado.' : 'Cupón activado.');
+    } catch {
+      avisarError('No se pudo cambiar el estado del cupón.');
+    }
+  }
+
+  async function eliminarCupon(c: CuponRow) {
+    if (!confirm(`¿Seguro que querés eliminar el cupón "${c.codigo}"?`)) return;
+    try {
+      const res = await fetch(`/api/admin/cupones?id=${encodeURIComponent(c.id)}`, {
+        method: 'DELETE',
+        headers: headers(),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        avisarError(data.error ?? 'No se pudo eliminar el cupón.');
+        return;
+      }
+      await cargarTodo();
+      avisarOk('Cupón eliminado.');
+    } catch {
+      avisarError('Error al eliminar el cupón.');
+    }
+  }
+
   async function crearCupon(e: React.FormEvent) {
     e.preventDefault();
+    const codigo = cuponCodigo.trim().toUpperCase();
     const descNum = Number(cuponDescuento);
-    if (!cuponCodigo.trim()) return avisarError('Ingresá un código de cupón.');
+    if (!codigo) return avisarError('Ingresá un código de cupón.');
     if (!Number.isFinite(descNum) || descNum <= 0 || descNum > 100) {
       return avisarError('El descuento debe ser un número entre 1 y 100.');
+    }
+    // Evitamos duplicados ya conocidos antes de pegarle al server.
+    if (cupones.some((c) => c.codigo.toUpperCase() === codigo)) {
+      return avisarError(`El cupón "${codigo}" ya existe.`);
     }
     setAviso(null);
     try {
@@ -572,6 +633,12 @@ export default function AdminPage() {
                       <button className="admin-link" onClick={() => toggleActivo(p)}>
                         {p.activo ? 'Desactivar' : 'Activar'}
                       </button>
+                      <button
+                        className="admin-link admin-link-peligro"
+                        onClick={() => eliminarProducto(p)}
+                      >
+                        Eliminar
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -721,11 +788,12 @@ export default function AdminPage() {
                   <th>Descuento</th>
                   <th>Usos</th>
                   <th>Estado</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {cupones.map((c) => (
-                  <tr key={c.id}>
+                  <tr key={c.id} className={c.activo ? '' : 'admin-inactivo'}>
                     <td data-label="Código">{c.codigo}</td>
                     <td data-label="Descuento">{c.descuento}%</td>
                     <td data-label="Usos">{c.usos}</td>
@@ -734,11 +802,22 @@ export default function AdminPage() {
                         {c.activo ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
+                    <td className="admin-acciones-col">
+                      <button className="admin-link" onClick={() => toggleCupon(c)}>
+                        {c.activo ? 'Desactivar' : 'Activar'}
+                      </button>
+                      <button
+                        className="admin-link admin-link-peligro"
+                        onClick={() => eliminarCupon(c)}
+                      >
+                        Eliminar
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {cupones.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="admin-vacio">
+                    <td colSpan={5} className="admin-vacio">
                       No hay cupones. (¿Corriste la migración 002 en Supabase?)
                     </td>
                   </tr>

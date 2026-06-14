@@ -1698,6 +1698,17 @@ select.checkout-input {
 }
 .admin-link:hover { border-color: var(--denim); background: var(--denim-tenue); }
 
+/* Variante de peligro (eliminar): rojo discreto acorde al diseño oscuro. */
+.admin-link-peligro {
+  color: #e7867f;
+  border-color: rgba(200, 70, 60, 0.4);
+}
+.admin-link-peligro:hover {
+  border-color: #c8463c;
+  background: rgba(200, 70, 60, 0.14);
+  color: #f3a39c;
+}
+
 .admin-vacio {
   text-align: center;
   color: var(--marfil-dim);
