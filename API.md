@@ -30,9 +30,12 @@ redirigir al checkout.
 ```
 
 **Hace:** arma los ítems (productos + envío + descuento por cupón como ítem
-negativo), valida el cupón de nuevo en el server, guarda en `metadata` los
-talles/cantidades comprados (para que el webhook descuente stock) y crea la
-preferencia.
+negativo), **revalida el cupón en el server contra la tabla `cupones` de
+Supabase** (respetando `activo`), guarda en `metadata` los talles/cantidades
+comprados (para que el webhook descuente stock) y crea la preferencia. El
+descuento enviado a MercadoPago coincide exactamente con el que muestra la UI
+(ambos leen el mismo `descuento` de Supabase). Un cupón inexistente o inactivo
+no aplica descuento.
 
 **Devuelve:**
 
@@ -79,6 +82,27 @@ uso.
 
 ---
 
+## `POST /api/contacto`
+
+Recibe un mensaje del formulario de contacto: lo guarda en la tabla `mensajes`
+y dispara un email de aviso (vía Resend) a la casilla del estudio.
+
+**Recibe:** `{ "nombre": "Ana", "email": "ana@mail.com", "mensaje": "Hola..." }`
+
+**Valida:** nombre ≥ 2 chars, email con formato válido, mensaje ≥ 10 chars
+(misma validación que el formulario del cliente).
+
+**Hace:** inserta en `mensajes` y luego envía el email de aviso. Si el email
+falla, no rompe la request (el mensaje ya quedó guardado).
+
+**Devuelve:**
+
+- `200` → `{ "ok": true }`
+- `400` → `{ "error": "Datos de contacto inválidos." }` o `{ "error": "El mensaje debe tener al menos 10 caracteres." }`
+- `500` → `{ "error": "No se pudo guardar el mensaje." }`
+
+---
+
 ## `/api/resenas`
 
 Reseñas por producto.
@@ -112,6 +136,7 @@ CRUD de productos. Requiere `x-admin-password`.
 | `POST` | Crea un producto | `{ nombre, categoria, precio, descripcion, material, talles[], stock{}, badge, activo, imagenes[] }` | `{ "producto": {...} }` |
 | `PUT` | Edita un producto | igual que POST + `id` | `{ "producto": {...} }` |
 | `PATCH` | Activa/desactiva | `{ id, activo }` | `{ "producto": {...} }` |
+| `DELETE` | Elimina un producto | `?id=<id>` (query string) | `{ "ok": true }` |
 
 `nombre` y `categoria` son obligatorios. Sin auth → `401`.
 
@@ -125,8 +150,26 @@ Gestión de cupones. Requiere `x-admin-password`.
 | --- | --- | --- | --- |
 | `GET` | Lista los cupones | — | `{ "cupones": [...] }` |
 | `POST` | Crea un cupón | `{ codigo, descuento }` (descuento 1–100) | `{ "cupon": {...} }` |
+| `PATCH` | Activa/desactiva un cupón | `{ id, activo }` | `{ "cupon": {...} }` |
+| `DELETE` | Elimina un cupón | `?id=<id>` (query string) | `{ "ok": true }` |
 
 Código duplicado → `400` `{ "error": "Ese código ya existe." }`.
+Un cupón inactivo (`activo: false`) no aplica descuento en el checkout: tanto
+`/api/cupon` como `/api/create-preference` lo rechazan.
+
+---
+
+## `/api/admin/mensajes` 🔒
+
+Mensajes del formulario de contacto. Requiere `x-admin-password`.
+
+| Método | Qué hace | Recibe | Devuelve |
+| --- | --- | --- | --- |
+| `GET` | Lista los mensajes (más nuevos primero) | — | `{ "mensajes": [...] }` |
+| `PATCH` | Marca un mensaje como leído / no leído | `{ id, leido }` | `{ "mensaje": {...} }` |
+
+Cada mensaje tiene `{ id, nombre, email, mensaje, leido, created_at }`.
+Sin auth → `401`. Faltan `id` o `leido` → `400`.
 
 ---
 
