@@ -183,6 +183,10 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const coleccionRef = useRef<HTMLElement>(null);
+  // Contenedores scrollables del modal. Según el viewport scrollea uno u otro:
+  // el overlay completo en mobile/tablet, o el panel de info en desktop.
+  const modalOverlayRef = useRef<HTMLDivElement>(null);
+  const modalInfoRef = useRef<HTMLDivElement>(null);
 
   // ────────────────────────────────────────────────
   // TOAST
@@ -676,6 +680,16 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     const t = setInterval(aleatorio, 30000);
     return () => clearInterval(t);
   }, [modalProd]);
+
+  // Al cambiar de producto en el modal (incluido saltar a un "relacionado"),
+  // devolvemos el scroll arriba para ver el nuevo producto desde el inicio.
+  // Según el viewport scrollea el overlay (mobile/tablet) o el panel de info
+  // (desktop), así que reseteamos ambos.
+  useEffect(() => {
+    if (!modalProd) return;
+    modalOverlayRef.current?.scrollTo({ top: 0 });
+    modalInfoRef.current?.scrollTo({ top: 0 });
+  }, [modalProd?.id]);
 
   // Cargar reseñas del producto al abrir el modal.
   useEffect(() => {
@@ -1354,7 +1368,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       </footer>
 
       {/* ═══ MODAL PRODUCTO ═══ */}
-      <div className={`modal-overlay${modalProd ? ' abierto' : ''}`} role="dialog" aria-modal="true" aria-label="Detalle del producto">
+      <div ref={modalOverlayRef} className={`modal-overlay${modalProd ? ' abierto' : ''}`} role="dialog" aria-modal="true" aria-label="Detalle del producto">
         {modalProd && (
           <>
             <div
@@ -1408,7 +1422,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               )}
             </div>
 
-            <div className="modal-info">
+            <div className="modal-info" ref={modalInfoRef}>
               <button className="modal-close" onClick={cerrarModal} aria-label="Cerrar">
                 <CloseIcon />
               </button>
