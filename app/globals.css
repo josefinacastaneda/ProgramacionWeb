@@ -1375,6 +1375,10 @@ select.checkout-input {
   position: fixed; inset: 0; z-index: 700;
   background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center;
   padding: 1.5rem; opacity: 0; pointer-events: none; transition: opacity var(--transicion);
+  /* El overlay contiene su propio scroll: así el scroll no se "filtra" a la
+     página de fondo (sumado al overflow:hidden del body, la barra lateral no
+     se mueve). Permite además ver una guía alta en pantallas chicas. */
+  overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch;
 }
 .guia-overlay.abierto { opacity: 1; pointer-events: all; }
 .guia-popup {
