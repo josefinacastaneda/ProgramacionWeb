@@ -1624,7 +1624,24 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               return (
                 <div className="sidebar-item" key={idx}>
                   <div className="sidebar-item-img">
-                    <img src={it.imgSrc} alt={it.producto.nombre} onError={(e) => (e.currentTarget.style.display = 'none')} />
+                    {it.imgSrc && (
+                      <img
+                        src={it.imgSrc}
+                        alt={it.producto.nombre}
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                          if (fb) fb.style.display = 'flex';
+                        }}
+                      />
+                    )}
+                    <span
+                      className="sidebar-item-ph"
+                      style={it.imgSrc ? undefined : { display: 'flex' }}
+                      aria-hidden="true"
+                    >
+                      {nombrePlaceholder(it.producto.nombre)}
+                    </span>
                   </div>
                   <div className="sidebar-item-info">
                     <p className="sidebar-item-nombre">{it.producto.nombre}</p>
@@ -1943,7 +1960,24 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             favoritos.map((it, idx) => (
               <div className="sidebar-item" key={idx}>
                 <div className="sidebar-item-img">
-                  <img src={it.imgSrc} alt={it.producto.nombre} onError={(e) => (e.currentTarget.style.display = 'none')} />
+                  {it.imgSrc && (
+                    <img
+                      src={it.imgSrc}
+                      alt={it.producto.nombre}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (fb) fb.style.display = 'flex';
+                      }}
+                    />
+                  )}
+                  <span
+                    className="sidebar-item-ph"
+                    style={it.imgSrc ? undefined : { display: 'flex' }}
+                    aria-hidden="true"
+                  >
+                    {nombrePlaceholder(it.producto.nombre)}
+                  </span>
                 </div>
                 <div className="sidebar-item-info">
                   <p className="sidebar-item-nombre">{it.producto.nombre}</p>
