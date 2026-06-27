@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const { data: cupon, error } = await supabaseAdmin
     .from('cupones')
-    .select('id, codigo, descuento, usos, activo')
+    .select('codigo, descuento, activo')
     .eq('codigo', codigo)
     .maybeSingle();
 
@@ -25,11 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ valido: false, error: 'Código inválido.' });
   }
 
-  // Sumamos un uso al canjear el cupón.
-  await supabaseAdmin
-    .from('cupones')
-    .update({ usos: (cupon.usos ?? 0) + 1 })
-    .eq('id', cupon.id);
-
+  // Acá sólo validamos: el contador de "usos" se incrementa en el webhook,
+  // recién cuando el pago se concreta (approved), para no inflarlo.
   return NextResponse.json({ valido: true, codigo: cupon.codigo, descuento: cupon.descuento });
 }

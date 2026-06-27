@@ -98,6 +98,27 @@ function extraerPaymentId(req: NextRequest, body: Record<string, unknown>): stri
   return id ?? null;
 }
 
+// Suma 1 al contador de usos del cupón. Se llama sólo cuando el pago se aprueba
+// (no al validarlo en el checkout), para que el número refleje compras reales.
+async function incrementarUsoCupon(codigo: string) {
+  const code = codigo.trim().toUpperCase();
+  if (!code) return;
+  const { data: cupon, error } = await supabaseAdmin
+    .from('cupones')
+    .select('id, usos')
+    .eq('codigo', code)
+    .maybeSingle();
+  if (error || !cupon) {
+    if (error) console.error('Webhook: no se pudo leer el cupón', error.message);
+    return;
+  }
+  const { error: errUpd } = await supabaseAdmin
+    .from('cupones')
+    .update({ usos: (cupon.usos ?? 0) + 1 })
+    .eq('id', cupon.id);
+  if (errUpd) console.error('Webhook: no se pudo actualizar usos del cupón', errUpd.message);
+}
+
 // Resta `cantidad` al stock del talle comprado, sin bajar de 0.
 async function descontarStock(compras: Compra[]) {
   for (const c of compras) {
@@ -212,6 +233,15 @@ export async function POST(req: NextRequest) {
   // que un fallo de Resend nunca rompa el webhook.
   if (insertado && estado === 'approved') {
     await descontarStock(compras);
+    // Contamos el uso del cupón recién acá (pago aprobado y pedido nuevo), así
+    // los duplicados no lo vuelven a sumar.
+    if (metadata.cupon) {
+      try {
+        await incrementarUsoCupon(metadata.cupon);
+      } catch (err) {
+        console.error('Webhook: fallo al contar el uso del cupón', (err as Error).message);
+      }
+    }
     try {
       await avisarCompra({
         compras,

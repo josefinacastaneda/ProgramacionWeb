@@ -157,7 +157,9 @@ export async function POST(req: NextRequest) {
     metadata: {
       pais,
       entrega,
-      cupon: body.cupon ?? null,
+      // Guardamos el cupón sólo si quedó validado y aplicado, con su código
+      // normalizado: el webhook usa esto para contar el uso recién al aprobarse.
+      cupon: cuponValido?.codigo ?? null,
       comprador: {
         nombre: comprador.nombre ?? null,
         email: comprador.email ?? null,
