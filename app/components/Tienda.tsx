@@ -13,7 +13,10 @@ import {
 
 const NOMBRE_TIENDA = process.env.NEXT_PUBLIC_NOMBRE_TIENDA || 'FINALOOK STUDIO';
 const NOSOTROS_TEXTO =
-  'Cada pieza nace de la obsesión por el detalle. Creamos con tiempo, con intención, y sin apuro. FinaLook Studio no es una tienda. Es un punto de vista.';
+  'Diseñamos prendas con foco en el detalle y la calidad. Cada pieza está pensada para durar y para usarse todos los días.';
+
+// Mínimo de caracteres para el mensaje del formulario de contacto.
+const MENSAJE_MIN = 10;
 
 interface CartItem {
   producto: Producto;
@@ -813,7 +816,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     const nuevos = {
       nombre: campos.nombre.trim().length < 2,
       email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(campos.email),
-      mensaje: campos.mensaje.trim().length < 5,
+      mensaje: campos.mensaje.trim().length < MENSAJE_MIN,
     };
     setErrores(nuevos);
     if (nuevos.nombre || nuevos.email || nuevos.mensaje) return;
@@ -1294,7 +1297,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                     setErrores((er) => ({ ...er, mensaje: false }));
                   }}
                 />
-                <span className={`form-error${errores.mensaje ? ' visible' : ''}`}>Escribí tu mensaje antes de enviar.</span>
+                <span className={`form-error${errores.mensaje ? ' visible' : ''}`}>El mensaje debe tener al menos {MENSAJE_MIN} caracteres. Contanos un poco más.</span>
               </div>
 
               <button type="submit" className="btn-enviar" disabled={enviandoContacto}>

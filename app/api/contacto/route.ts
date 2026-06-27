@@ -22,8 +22,15 @@ export async function POST(req: NextRequest) {
   const mensaje = (body.mensaje ?? '').trim();
 
   // Misma validación que el formulario del cliente.
-  if (nombre.length < 2 || !emailValido(email) || mensaje.length < 5) {
+  const MENSAJE_MIN = 10;
+  if (nombre.length < 2 || !emailValido(email)) {
     return NextResponse.json({ error: 'Datos de contacto inválidos.' }, { status: 400 });
+  }
+  if (mensaje.length < MENSAJE_MIN) {
+    return NextResponse.json(
+      { error: `El mensaje debe tener al menos ${MENSAJE_MIN} caracteres.` },
+      { status: 400 },
+    );
   }
 
   // 1) Guardamos el mensaje en Supabase.
