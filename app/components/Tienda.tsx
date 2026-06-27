@@ -202,23 +202,51 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // NAVBAR scroll + HERO parallax
   // ────────────────────────────────────────────────
   useEffect(() => {
-    const onScroll = () => {
+    // En móvil o con "reducir movimiento" activado, evitamos el parallax para
+    // que el scroll sea fluido (en pantallas chicas el efecto pesa más).
+    const mqMovil = window.matchMedia('(max-width: 768px)');
+    const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    let ticking = false;
+    let raf = 0;
+
+    // El trabajo visual se hace dentro de un rAF (una sola vez por frame) y solo
+    // con transform/opacity, que componen sin disparar reflow. Antes animábamos
+    // letter-spacing (provoca layout en cada scroll y se trababa en celular).
+    const aplicar = () => {
+      ticking = false;
       const scroll = window.scrollY;
       setScrolled(scroll > 60);
 
-      const vh = window.innerHeight;
-      const titulo = heroTituloRef.current;
       const contenido = heroContenidoRef.current;
-      if (!titulo || !contenido) return;
+      if (!contenido) return;
 
+      // Sin parallax en móvil / reduce-motion: dejamos el hero estático.
+      if (mqMovil.matches || mqReduce.matches) {
+        contenido.style.transform = '';
+        contenido.style.opacity = '';
+        return;
+      }
+
+      const vh = window.innerHeight;
       if (scroll > vh) return; // solo mientras el hero está visible
       const prog = scroll / vh;
-      titulo.style.letterSpacing = `${0.18 + prog * 0.37}em`;
       contenido.style.transform = `scale(${1 + prog * 0.04})`;
       contenido.style.opacity = String(Math.max(0, 1 - prog * 1.4));
     };
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      raf = requestAnimationFrame(aplicar);
+    };
+
+    aplicar(); // estado inicial
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
   // ────────────────────────────────────────────────
