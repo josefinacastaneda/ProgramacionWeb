@@ -1820,7 +1820,10 @@ select.checkout-input {
   .admin-header .admin-titulo { font-size: 1.25rem; }
   .admin-header .admin-btn-ghost { padding: 0.6rem 1rem; flex-shrink: 0; }
 
-  /* Tabs: scroll horizontal antes que romper el layout. */
+  /* Tabs: scroll horizontal antes que romper el layout. Un degradado sutil en
+     los bordes indica que hay más tabs para deslizar; con la técnica de
+     "scroll shadows" (background-attachment: local) aparece sólo del lado que
+     tiene contenido oculto y se esconde al llegar al extremo. */
   .admin-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -1828,6 +1831,14 @@ select.checkout-input {
     scrollbar-width: none;
     margin-inline: -1rem;
     padding-inline: 1rem;
+    background:
+      linear-gradient(to right, var(--negro) 30%, rgba(8, 8, 8, 0)) left center,
+      linear-gradient(to left, var(--negro) 30%, rgba(8, 8, 8, 0)) right center,
+      radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) left center,
+      radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0)) right center;
+    background-repeat: no-repeat;
+    background-size: 2.4rem 100%, 2.4rem 100%, 1rem 100%, 1rem 100%;
+    background-attachment: local, local, scroll, scroll;
   }
   .admin-tabs::-webkit-scrollbar { display: none; }
   .admin-tab { flex-shrink: 0; }
