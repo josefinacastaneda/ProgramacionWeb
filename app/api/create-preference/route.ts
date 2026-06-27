@@ -30,13 +30,6 @@ interface CompradorBody {
 }
 
 export async function POST(req: NextRequest) {
-  console.log(
-    'Token cargado:',
-    !!process.env.MP_ACCESS_TOKEN,
-    'primeros 8 chars:',
-    process.env.MP_ACCESS_TOKEN?.slice(0, 8),
-  );
-
   const accessToken = process.env.MP_ACCESS_TOKEN;
   if (!accessToken) {
     return NextResponse.json(
@@ -77,14 +70,16 @@ export async function POST(req: NextRequest) {
 
   const itemsFinal = [...itemsProducto];
 
-  // Descuento por cupón (se valida de nuevo en el server).
-  const pctDescuento = body.cupon ? validarCupon(body.cupon) : null;
-  if (pctDescuento) {
-    const montoDescuento = Math.round((subtotalProductos * pctDescuento) / 100);
+  // Descuento por cupón: se revalida en el server contra Supabase (misma fuente
+  // que usa la UI), respetando `activo`. Así el descuento enviado a MercadoPago
+  // coincide exactamente con el que se muestra en el carrito.
+  const cuponValido = body.cupon ? await validarCupon(body.cupon) : null;
+  if (cuponValido) {
+    const montoDescuento = Math.round((subtotalProductos * cuponValido.descuento) / 100);
     if (montoDescuento > 0) {
       itemsFinal.push({
         id: 'descuento',
-        title: `Descuento ${body.cupon!.trim().toUpperCase()} (-${pctDescuento}%)`,
+        title: `Descuento ${cuponValido.codigo} (-${cuponValido.descuento}%)`,
         quantity: 1,
         unit_price: -montoDescuento,
         currency_id: 'ARS',
@@ -187,17 +182,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const preference = await new Preference(client).create({ body: preferenceData });
-    console.log('MP Response:', JSON.stringify(preference, null, 2));
     if (!preference.init_point) {
-      return NextResponse.json(
-        { error: 'MP no devolvió init_point', detail: preference },
-        { status: 500 },
-      );
+      console.error('MP no devolvió init_point para la preferencia.');
+      return NextResponse.json({ error: 'MP no devolvió init_point' }, { status: 500 });
     }
     return NextResponse.json({ init_point: preference.init_point });
   } catch (err: unknown) {
-    const e = err as { message?: string; cause?: unknown };
-    console.error('MP Error completo:', e?.message, e?.cause, JSON.stringify(err));
-    return NextResponse.json({ error: e?.message || 'Error SDK', detail: e?.cause }, { status: 500 });
+    const e = err as { message?: string };
+    console.error('Error al crear la preferencia de MercadoPago:', e?.message);
+    return NextResponse.json({ error: e?.message || 'Error SDK' }, { status: 500 });
   }
 }
