@@ -55,7 +55,9 @@ interface FormProducto {
   descripcion: string;
   material: string;
   tallesCsv: string;
-  stock: Record<string, number>;
+  // Stock como string por talle: permite dejar el campo vacío mientras se edita
+  // (se guarda como 0). Evita el "0" precargado que no se podía borrar.
+  stock: Record<string, string>;
   badge: string;
   activo: boolean;
   imagenes: string[];
@@ -158,7 +160,9 @@ export default function AdminPage() {
       descripcion: p.descripcion ?? '',
       material: p.material ?? '',
       tallesCsv: (p.talles ?? []).join(', '),
-      stock: p.stock ?? {},
+      stock: Object.fromEntries(
+        Object.entries(p.stock ?? {}).map(([t, n]) => [t, String(n)]),
+      ),
       badge: p.badge ?? '',
       activo: p.activo,
       imagenes: p.imagenes ?? [],
@@ -169,8 +173,9 @@ export default function AdminPage() {
   function setTallesCsv(csv: string) {
     if (!form) return;
     const talles = csv.split(',').map((t) => t.trim()).filter(Boolean);
-    const stock: Record<string, number> = {};
-    for (const t of talles) stock[t] = form.stock[t] ?? 0;
+    const stock: Record<string, string> = {};
+    // Talle nuevo arranca vacío (no con "0"); conservamos lo ya tipeado.
+    for (const t of talles) stock[t] = form.stock[t] ?? '';
     setForm({ ...form, tallesCsv: csv, stock });
   }
 
@@ -227,11 +232,13 @@ export default function AdminPage() {
       return avisarError('El precio debe ser un número mayor a 0.');
     }
     const talles = tallesDelForm;
-    // El stock de cada talle debe ser un entero >= 0.
+    // El stock de cada talle debe ser un entero >= 0. Vacío vale (se guarda 0).
     for (const t of talles) {
-      const n = Number(form.stock[t]);
-      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
-        return avisarError(`El stock del talle ${t} debe ser un número entero válido.`);
+      const raw = (form.stock[t] ?? '').trim();
+      if (raw === '') continue;
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n < 0) {
+        return avisarError(`El stock del talle ${t} debe ser un número entero válido (0 o más).`);
       }
     }
     setGuardando(true);
@@ -244,6 +251,7 @@ export default function AdminPage() {
       descripcion: form.descripcion,
       material: form.material,
       talles,
+      // Campo vacío → 0 al guardar.
       stock: Object.fromEntries(talles.map((t) => [t, Number(form.stock[t]) || 0])),
       badge: form.badge,
       activo: form.activo,
@@ -564,15 +572,20 @@ export default function AdminPage() {
                       <label key={t} className="admin-stock-item">
                         {t}
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
                           className="admin-input"
-                          value={form.stock[t] ?? 0}
-                          onChange={(e) =>
-                            setForm({
-                              ...form,
-                              stock: { ...form.stock, [t]: Number(e.target.value) || 0 },
-                            })
-                          }
+                          placeholder="0"
+                          value={form.stock[t] ?? ''}
+                          onChange={(e) => {
+                            // Sólo dígitos y sin ceros a la izquierda: así el "0"
+                            // se borra al escribir y no se concatena (02, 0100).
+                            const limpio = e.target.value
+                              .replace(/[^\d]/g, '')
+                              .replace(/^0+(?=\d)/, '');
+                            setForm({ ...form, stock: { ...form.stock, [t]: limpio } });
+                          }}
                         />
                       </label>
                     ))}
