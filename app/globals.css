@@ -213,7 +213,12 @@ nav {
   position: relative;
   z-index: 2;
   text-align: center;
-  /* Solo transform/opacity se animan (compositor), así el parallax no reflowea. */
+  /* El efecto de scroll escala desde el centro: crecimiento simétrico, sin
+     irse a los costados. max-width + overflow-x hidden del hero evitan que el
+     contenido escalado genere scroll horizontal. */
+  transform-origin: center center;
+  max-width: 100%;
+  /* Solo transform/opacity se animan (compositor), así el efecto no reflowea. */
   will-change: transform, opacity;
 }
 .hero-drop-label {
@@ -245,7 +250,9 @@ nav {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   animation: shimmerSlide 9s linear infinite, fadeUpIn 1.2s ease 0.5s both;
-  will-change: letter-spacing, transform;
+  /* El escalado lo maneja el contenedor (.hero-contenido); el título sólo se
+     asegura de no desbordar aunque crezca. */
+  max-width: 100%;
 }
 .hero-studio-sub {
   display: block;

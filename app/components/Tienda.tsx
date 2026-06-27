@@ -202,17 +202,15 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // NAVBAR scroll + HERO parallax
   // ────────────────────────────────────────────────
   useEffect(() => {
-    // En móvil o con "reducir movimiento" activado, evitamos el parallax para
-    // que el scroll sea fluido (en pantallas chicas el efecto pesa más).
-    const mqMovil = window.matchMedia('(max-width: 768px)');
+    // Efecto de scroll del hero (estilo Apple): el contenido escala suavemente
+    // y se desvanece al scrollear. Usamos SOLO transform/opacity (corren en el
+    // compositor/GPU, sin reflow) y throttleamos con requestAnimationFrame (un
+    // update por frame) para que sea fluido en desktop y en celular.
     const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     let ticking = false;
     let raf = 0;
 
-    // El trabajo visual se hace dentro de un rAF (una sola vez por frame) y solo
-    // con transform/opacity, que componen sin disparar reflow. Antes animábamos
-    // letter-spacing (provoca layout en cada scroll y se trababa en celular).
     const aplicar = () => {
       ticking = false;
       const scroll = window.scrollY;
@@ -221,18 +219,23 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       const contenido = heroContenidoRef.current;
       if (!contenido) return;
 
-      // Sin parallax en móvil / reduce-motion: dejamos el hero estático.
-      if (mqMovil.matches || mqReduce.matches) {
+      // Si el usuario pidió reducir movimiento, dejamos el hero estático.
+      if (mqReduce.matches) {
         contenido.style.transform = '';
         contenido.style.opacity = '';
         return;
       }
 
-      const vh = window.innerHeight;
-      if (scroll > vh) return; // solo mientras el hero está visible
-      const prog = scroll / vh;
-      contenido.style.transform = `scale(${1 + prog * 0.04})`;
-      contenido.style.opacity = String(Math.max(0, 1 - prog * 1.4));
+      const vh = window.innerHeight || 1;
+      // Progreso 0→1 mientras el hero está en pantalla (clamp para no pasarse).
+      const prog = Math.min(1, Math.max(0, scroll / vh));
+      // Amplitud del escalado adaptada al ancho: más sutil en pantallas chicas
+      // para que se vea elegante y nunca brusco; algo más marcada en desktop.
+      const amplitud = window.innerWidth <= 768 ? 0.1 : 0.16;
+      // El escalado es desde el centro (transform-origin en CSS): el contenido
+      // crece simétrico y, con overflow-x hidden del hero, nunca desborda.
+      contenido.style.transform = `scale(${(1 + prog * amplitud).toFixed(4)})`;
+      contenido.style.opacity = Math.max(0, 1 - prog * 1.15).toFixed(3);
     };
 
     const onScroll = () => {
@@ -243,8 +246,11 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
     aplicar(); // estado inicial
     window.addEventListener('scroll', onScroll, { passive: true });
+    // Reaplicamos al cambiar el tamaño/orientación para mantener la proporción.
+    window.addEventListener('resize', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
       cancelAnimationFrame(raf);
     };
   }, []);
