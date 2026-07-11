@@ -10,6 +10,17 @@ import {
   ordenarPorPrecio,
   buscarProductos,
 } from '@/lib/productos';
+import {
+  nombreValido,
+  emailValido,
+  telefonoValido,
+  calleValida,
+  numeroValido,
+  cpValido,
+  ciudadProvinciaValida,
+  validarComprador,
+  MSG_VALIDACION,
+} from '@/lib/validaciones';
 
 const NOMBRE_TIENDA = process.env.NEXT_PUBLIC_NOMBRE_TIENDA || 'FINALOOK STUDIO';
 const NOSOTROS_TEXTO =
@@ -531,19 +542,21 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   function setCampoComprador(campo: keyof typeof comprador, valor: string) {
     setComprador((prev) => ({ ...prev, [campo]: valor }));
   }
-  // Habilita el pago sólo con nombre, email válido y dirección completa.
-  const emailCompradorValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(comprador.email.trim());
-  const direccionCompleta =
-    comprador.calle.trim() !== '' &&
-    comprador.numero.trim() !== '' &&
-    comprador.ciudad.trim() !== '' &&
-    comprador.provincia.trim() !== '' &&
-    comprador.cp.trim() !== '';
-  // Con retiro en local no pedimos dirección, sólo nombre y email.
-  const checkoutValido =
-    comprador.nombre.trim() !== '' &&
-    emailCompradorValido &&
-    (entrega === 'retiro' || direccionCompleta);
+  // Errores por campo del checkout: se muestran sólo cuando el usuario ya
+  // escribió algo inválido (no molestamos con el campo vacío todavía).
+  const erroresCheckout = {
+    nombre: comprador.nombre.trim() !== '' && !nombreValido(comprador.nombre),
+    email: comprador.email.trim() !== '' && !emailValido(comprador.email),
+    telefono: comprador.telefono.trim() !== '' && !telefonoValido(comprador.telefono),
+    calle: comprador.calle.trim() !== '' && !calleValida(comprador.calle),
+    numero: comprador.numero.trim() !== '' && !numeroValido(comprador.numero),
+    ciudad: comprador.ciudad.trim() !== '' && !ciudadProvinciaValida(comprador.ciudad),
+    provincia: comprador.provincia.trim() !== '' && !ciudadProvinciaValida(comprador.provincia),
+    cp: comprador.cp.trim() !== '' && !cpValido(comprador.cp),
+  };
+  // Habilita el pago sólo con todos los datos válidos (nombre, email, teléfono
+  // opcional y, si es envío, dirección completa). Misma regla que el backend.
+  const checkoutValido = validarComprador(comprador, entrega) === null;
 
   function abrirCheckout() {
     if (carrito.length === 0) {
@@ -862,8 +875,8 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   async function enviarContacto(e: React.FormEvent) {
     e.preventDefault();
     const nuevos = {
-      nombre: campos.nombre.trim().length < 2,
-      email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(campos.email),
+      nombre: !nombreValido(campos.nombre),
+      email: !emailValido(campos.email),
       mensaje: campos.mensaje.trim().length < MENSAJE_MIN,
     };
     setErrores(nuevos);
@@ -1300,13 +1313,14 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                   name="nombre"
                   placeholder="Nombre completo"
                   autoComplete="name"
+                  maxLength={60}
                   value={campos.nombre}
                   onChange={(e) => {
                     setCampos((c) => ({ ...c, nombre: e.target.value }));
                     setErrores((er) => ({ ...er, nombre: false }));
                   }}
                 />
-                <span className={`form-error${errores.nombre ? ' visible' : ''}`}>Por favor ingresá tu nombre.</span>
+                <span className={`form-error${errores.nombre ? ' visible' : ''}`}>{MSG_VALIDACION.nombre}</span>
               </div>
 
               <div className="form-grupo">
@@ -1750,26 +1764,29 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <label className="checkout-label" htmlFor="co-nombre">Nombre completo *</label>
             <input
               id="co-nombre"
-              className="checkout-input"
+              className={`checkout-input${erroresCheckout.nombre ? ' error' : ''}`}
               type="text"
               autoComplete="name"
+              maxLength={60}
               placeholder="Tu nombre y apellido"
               value={comprador.nombre}
               onChange={(e) => setCampoComprador('nombre', e.target.value)}
             />
+            {erroresCheckout.nombre && <span className="checkout-field-error">{MSG_VALIDACION.nombre}</span>}
           </div>
 
           <div className="checkout-field">
             <label className="checkout-label" htmlFor="co-email">Email *</label>
             <input
               id="co-email"
-              className="checkout-input"
+              className={`checkout-input${erroresCheckout.email ? ' error' : ''}`}
               type="email"
               autoComplete="email"
               placeholder="tu@email.com"
               value={comprador.email}
               onChange={(e) => setCampoComprador('email', e.target.value)}
             />
+            {erroresCheckout.email && <span className="checkout-field-error">{MSG_VALIDACION.email}</span>}
           </div>
 
           <div className="checkout-field">
@@ -1778,13 +1795,15 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             </label>
             <input
               id="co-tel"
-              className="checkout-input"
+              className={`checkout-input${erroresCheckout.telefono ? ' error' : ''}`}
               type="tel"
+              inputMode="tel"
               autoComplete="tel"
               placeholder="+54 9 11 0000 0000"
               value={comprador.telefono}
               onChange={(e) => setCampoComprador('telefono', e.target.value)}
             />
+            {erroresCheckout.telefono && <span className="checkout-field-error">{MSG_VALIDACION.telefono}</span>}
           </div>
 
           <div className="checkout-field">
@@ -1839,22 +1858,25 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               <label className="checkout-label" htmlFor="co-calle">Calle *</label>
               <input
                 id="co-calle"
-                className="checkout-input"
+                className={`checkout-input${erroresCheckout.calle ? ' error' : ''}`}
                 type="text"
                 autoComplete="address-line1"
                 value={comprador.calle}
                 onChange={(e) => setCampoComprador('calle', e.target.value)}
               />
+              {erroresCheckout.calle && <span className="checkout-field-error">{MSG_VALIDACION.calle}</span>}
             </div>
             <div className="checkout-field" style={{ flex: 1 }}>
               <label className="checkout-label" htmlFor="co-numero">Número *</label>
               <input
                 id="co-numero"
-                className="checkout-input"
+                className={`checkout-input${erroresCheckout.numero ? ' error' : ''}`}
                 type="text"
+                inputMode="numeric"
                 value={comprador.numero}
                 onChange={(e) => setCampoComprador('numero', e.target.value)}
               />
+              {erroresCheckout.numero && <span className="checkout-field-error">{MSG_VALIDACION.numero}</span>}
             </div>
           </div>
 
@@ -1862,12 +1884,13 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <label className="checkout-label" htmlFor="co-ciudad">Ciudad *</label>
             <input
               id="co-ciudad"
-              className="checkout-input"
+              className={`checkout-input${erroresCheckout.ciudad ? ' error' : ''}`}
               type="text"
               autoComplete="address-level2"
               value={comprador.ciudad}
               onChange={(e) => setCampoComprador('ciudad', e.target.value)}
             />
+            {erroresCheckout.ciudad && <span className="checkout-field-error">{MSG_VALIDACION.ciudad}</span>}
           </div>
 
           <div className="checkout-row">
@@ -1875,23 +1898,25 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               <label className="checkout-label" htmlFor="co-prov">Provincia *</label>
               <input
                 id="co-prov"
-                className="checkout-input"
+                className={`checkout-input${erroresCheckout.provincia ? ' error' : ''}`}
                 type="text"
                 autoComplete="address-level1"
                 value={comprador.provincia}
                 onChange={(e) => setCampoComprador('provincia', e.target.value)}
               />
+              {erroresCheckout.provincia && <span className="checkout-field-error">{MSG_VALIDACION.provincia}</span>}
             </div>
             <div className="checkout-field" style={{ flex: 1 }}>
               <label className="checkout-label" htmlFor="co-cp">Código postal *</label>
               <input
                 id="co-cp"
-                className="checkout-input"
+                className={`checkout-input${erroresCheckout.cp ? ' error' : ''}`}
                 type="text"
                 autoComplete="postal-code"
                 value={comprador.cp}
                 onChange={(e) => setCampoComprador('cp', e.target.value)}
               />
+              {erroresCheckout.cp && <span className="checkout-field-error">{MSG_VALIDACION.cp}</span>}
             </div>
           </div>
             </>

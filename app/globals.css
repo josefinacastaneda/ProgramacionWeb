@@ -1013,6 +1013,13 @@ footer {
   color: #e07a6b; background: rgba(192,57,43,0.08);
   border: 1px solid rgba(192,57,43,0.35);
 }
+/* Error por campo del checkout (validación de datos). */
+.checkout-input.error { border-color: #c0392b; }
+.checkout-field-error {
+  display: block; margin-top: 0.4rem;
+  font-size: 0.62rem; letter-spacing: 0.04em; line-height: 1.4;
+  color: #e07a6b;
+}
 
 /* ── Forma de entrega: envío vs retiro ── */
 .entrega-opciones { display: flex; flex-direction: column; gap: 0.6rem; }
