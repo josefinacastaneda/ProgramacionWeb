@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { enviarAviso } from '@/lib/resend';
+import { nombreValido, emailValido, MSG_VALIDACION } from '@/lib/validaciones';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const emailValido = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 // Escapa HTML para no inyectar markup en el email.
 function esc(s: string): string {
@@ -21,10 +20,13 @@ export async function POST(req: NextRequest) {
   const email = (body.email ?? '').trim();
   const mensaje = (body.mensaje ?? '').trim();
 
-  // Misma validación que el formulario del cliente.
+  // Misma validación que el formulario del cliente (mensajes claros por campo).
   const MENSAJE_MIN = 10;
-  if (nombre.length < 2 || !emailValido(email)) {
-    return NextResponse.json({ error: 'Datos de contacto inválidos.' }, { status: 400 });
+  if (!nombreValido(nombre)) {
+    return NextResponse.json({ error: MSG_VALIDACION.nombre }, { status: 400 });
+  }
+  if (!emailValido(email)) {
+    return NextResponse.json({ error: MSG_VALIDACION.email }, { status: 400 });
   }
   if (mensaje.length < MENSAJE_MIN) {
     return NextResponse.json(

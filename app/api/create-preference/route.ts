@@ -1,6 +1,7 @@
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { NextRequest, NextResponse } from 'next/server';
 import { validarCupon } from '@/lib/cupones';
+import { validarComprador } from '@/lib/validaciones';
 
 // Cada ítem del carrito que llega desde el front.
 interface ItemBody {
@@ -52,6 +53,13 @@ export async function POST(req: NextRequest) {
 
   if (!Array.isArray(items) || items.length === 0) {
     return NextResponse.json({ error: 'El carrito está vacío.' }, { status: 400 });
+  }
+
+  // Validación real de los datos del comprador (misma que hace el front).
+  // Con "envio" también exige una dirección válida.
+  const errorComprador = validarComprador(comprador, entrega);
+  if (errorComprador) {
+    return NextResponse.json({ error: errorComprador }, { status: 400 });
   }
 
   // Ítems de producto + envío + (opcional) descuento como ítem negativo.
