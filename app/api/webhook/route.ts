@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { enviarAviso } from '@/lib/resend';
+import { validarFirmaWebhook } from '@/lib/mp-signature';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -143,6 +144,19 @@ async function descontarStock(compras: Compra[]) {
 }
 
 export async function POST(req: NextRequest) {
+  // Verificación de origen: si MP_WEBHOOK_SECRET ya está configurado, una
+  // firma ausente o inválida rechaza la notificación de una. Mientras no esté
+  // configurada la dejamos pasar (con warning) para no cortar el procesamiento
+  // de pagos reales en producción antes de cargar la variable en Vercel.
+  const firma = validarFirmaWebhook(req);
+  if (firma === 'invalida') {
+    console.error('Webhook: firma x-signature inválida, se rechaza la notificación.');
+    return NextResponse.json({ error: 'Firma inválida' }, { status: 401 });
+  }
+  if (firma === 'sin-configurar') {
+    console.warn('Webhook: MP_WEBHOOK_SECRET no configurada; se procesa sin validar firma.');
+  }
+
   let body: Record<string, unknown> = {};
   try {
     body = (await req.json()) as Record<string, unknown>;

@@ -5,19 +5,19 @@ type Variante = 'exito' | 'pendiente' | 'error';
 const CONFIG: Record<Variante, { icono: string; color: string; titulo: string; mensaje: string }> = {
   exito: {
     icono: '◈',
-    color: 'var(--denim-claro)',
+    color: 'var(--camel-claro)',
     titulo: '¡Gracias por tu compra!',
     mensaje: 'Tu pago se aprobó correctamente. Te enviamos los detalles del pedido por email.',
   },
   pendiente: {
     icono: '◉',
-    color: 'var(--oro)',
+    color: 'var(--acento)',
     titulo: 'Pago pendiente',
     mensaje: 'Tu pago está siendo procesado. Te avisaremos por email cuando se confirme.',
   },
   error: {
     icono: '◎',
-    color: '#c0392b',
+    color: 'var(--peligro)',
     titulo: 'No pudimos procesar tu pago',
     mensaje: 'Algo salió mal con el pago. No se realizó ningún cobro. Probá nuevamente.',
   },
@@ -37,8 +37,8 @@ export default function ResultadoPago({
     <main
       style={{
         minHeight: '100dvh',
-        background: 'var(--negro)',
-        color: 'var(--marfil)',
+        background: 'var(--crudo)',
+        color: 'var(--tinta)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -63,12 +63,12 @@ export default function ResultadoPago({
         {c.titulo}
       </h1>
 
-      <p style={{ color: 'var(--marfil-dim)', fontSize: '0.9rem', lineHeight: 1.7, maxWidth: '440px' }}>
+      <p style={{ color: 'var(--tinta-dim)', fontSize: '0.9rem', lineHeight: 1.7, maxWidth: '440px' }}>
         {c.mensaje}
       </p>
 
       {(paymentId || status) && (
-        <p style={{ fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--denim-claro)' }}>
+        <p style={{ fontSize: '0.6rem', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--camel-claro)' }}>
           {paymentId && <>Pago #{paymentId}</>}
           {paymentId && status && ' — '}
           {status && <>Estado: {status}</>}
@@ -79,8 +79,8 @@ export default function ResultadoPago({
         href="/"
         style={{
           marginTop: '1.5rem',
-          border: '1px solid var(--marfil-dim)',
-          color: 'var(--marfil)',
+          border: '1px solid var(--tinta-dim)',
+          color: 'var(--tinta)',
           padding: '0.9rem 2rem',
           fontSize: '0.62rem',
           letterSpacing: '0.3em',

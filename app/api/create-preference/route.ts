@@ -2,8 +2,11 @@ import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { NextRequest, NextResponse } from 'next/server';
 import { validarCupon } from '@/lib/cupones';
 import { validarComprador } from '@/lib/validaciones';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
-// Cada ítem del carrito que llega desde el front.
+// Cada ítem del carrito que llega desde el front. `unit_price` es sólo una
+// referencia: el precio real se recalcula siempre contra Supabase (ver abajo),
+// nunca se confía en el que manda el cliente.
 interface ItemBody {
   id: string;
   title: string;
@@ -62,12 +65,59 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: errorComprador }, { status: 400 });
   }
 
+  // Precio recalculado SIEMPRE del lado del server: nunca confiamos en el
+  // unit_price que manda el cliente (podría estar manipulado). Buscamos cada
+  // producto en Supabase y usamos su precio real y su estado `activo`.
+  //
+  // Misma resiliencia que app/page.tsx: si la tabla todavía no existe o está
+  // vacía, el catálogo público cae al productos.json local, así que el
+  // checkout tiene que poder validar precios contra esa misma fuente o dejaría
+  // de funcionar en ese escenario (no es un caso hipotético: pasa hoy en este
+  // entorno). Si Supabase respondió con datos, es la fuente de verdad y un id
+  // que no aparece ahí se trata como producto realmente inexistente/inactivo.
+  // Chequeo liviano e independiente de los ids del carrito: ¿la tabla tiene
+  // datos en general? (mismo criterio que usa app/page.tsx para decidir si
+  // cae al JSON local).
+  const { count: totalProductos, error: errCount } = await supabaseAdmin
+    .from('productos')
+    .select('id', { count: 'exact', head: true });
+
+  let precioPorId: Map<string, number>;
+
+  if (errCount || !totalProductos) {
+    const { productosData } = await import('@/lib/productos');
+    precioPorId = new Map(productosData.map((p) => [String(p.id), Number(p.precio)]));
+  } else {
+    const idsProducto = [...new Set(items.map((it) => String(it.id)))];
+    const { data: productosDb, error: errProductos } = await supabaseAdmin
+      .from('productos')
+      .select('id, precio, activo')
+      .in('id', idsProducto);
+
+    if (errProductos) {
+      return NextResponse.json({ error: 'No se pudieron validar los productos.' }, { status: 500 });
+    }
+
+    precioPorId = new Map(
+      (productosDb ?? []).filter((p) => p.activo).map((p) => [String(p.id), Number(p.precio)]),
+    );
+  }
+
+  for (const it of items) {
+    if (!precioPorId.has(String(it.id))) {
+      return NextResponse.json(
+        { error: 'Uno de los productos ya no está disponible. Actualizá el carrito.' },
+        { status: 400 },
+      );
+    }
+  }
+
   // Ítems de producto + envío + (opcional) descuento como ítem negativo.
   const itemsProducto = items.map((it) => ({
     id: String(it.id),
     title: String(it.title),
     quantity: Number(it.quantity) || 1,
-    unit_price: Number(it.unit_price),
+    unit_price: precioPorId.get(String(it.id))!,
     currency_id: 'ARS',
   }));
 

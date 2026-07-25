@@ -167,9 +167,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     return m;
   });
 
-  // ── Social proof (personas viendo) ──
-  const [viendoAhora, setViendoAhora] = useState(4);
-
   // ── Guía de talles ──
   const [guiaAbierta, setGuiaAbierta] = useState(false);
 
@@ -719,15 +716,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalProd?.id, productos]);
 
-  // Social proof: número aleatorio 2-8 que cambia cada 30s.
-  useEffect(() => {
-    if (!modalProd) return;
-    const aleatorio = () => setViendoAhora(Math.floor(Math.random() * 7) + 2);
-    aleatorio();
-    const t = setInterval(aleatorio, 30000);
-    return () => clearInterval(t);
-  }, [modalProd]);
-
   // Al cambiar de producto en el modal (incluido saltar a un "relacionado"),
   // devolvemos el scroll arriba para ver el nuevo producto desde el inicio.
   // Según el viewport scrollea el overlay (mobile/tablet) o el panel de info
@@ -1110,7 +1098,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
           <div className={`productos-grid${vistaTres ? '' : ' vista-uno'}`} aria-live="polite">
             {listaVisible.length === 0 ? (
-              <p style={{ color: 'var(--marfil-dim)', fontSize: '0.8rem', letterSpacing: '0.1em', padding: '3rem 0' }}>
+              <p style={{ color: 'var(--tinta-dim)', fontSize: '0.8rem', letterSpacing: '0.1em', padding: '3rem 0' }}>
                 No hay prendas en esta categoría.
               </p>
             ) : (
@@ -1298,7 +1286,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           <h2 className="seccion-titulo" id="contacto-titulo" style={{ fontSize: 'clamp(2rem,5vw,3.5rem)', fontWeight: 300, marginBottom: '0.5rem' }}>
             Escribinos
           </h2>
-          <p style={{ fontSize: '0.78rem', color: 'var(--marfil-dim)', letterSpacing: '0.05em' }}>Respondemos en menos de 24 horas.</p>
+          <p style={{ fontSize: '0.78rem', color: 'var(--tinta-dim)', letterSpacing: '0.05em' }}>Respondemos en menos de 24 horas.</p>
 
           {!formEnviado ? (
             <form className="contacto-form" noValidate aria-label="Formulario de contacto" onSubmit={enviarContacto}>
@@ -1374,13 +1362,13 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
           <div className="contacto-redes">
             <div className="contacto-dato">
-              <span style={{ display: 'block', fontSize: '0.52rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--denim-claro)', marginBottom: '0.35rem' }}>
+              <span style={{ display: 'block', fontSize: '0.52rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--camel-claro)', marginBottom: '0.35rem' }}>
                 Email
               </span>
               <a href="mailto:finalookstudio@gmail.com">finalookstudio@gmail.com</a>
             </div>
             <div className="contacto-dato">
-              <span style={{ display: 'block', fontSize: '0.52rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--denim-claro)', marginBottom: '0.35rem' }}>
+              <span style={{ display: 'block', fontSize: '0.52rem', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--camel-claro)', marginBottom: '0.35rem' }}>
                 Instagram
               </span>
               <a href="https://instagram.com/finalook.studio" target="_blank" rel="noopener noreferrer">
@@ -1478,10 +1466,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               <p className="modal-cat-label">{modalProd.categoria}</p>
               <h2 className="modal-nombre">{modalProd.nombre}</h2>
 
-              <p className="modal-viendo" aria-live="polite" key={viendoAhora}>
-                {viendoAhora} personas están viendo esto ahora
-              </p>
-
               {resenas.length > 0 && (
                 <div className="modal-rating-resumen">
                   <span className="estrellas-mostrar" aria-hidden="true">
@@ -1507,7 +1491,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                       <button
                         key={col.nombre}
                         className={`modal-color-swatch${modalColor?.nombre === col.nombre ? ' activo' : ''}`}
-                        style={{ background: col.hex, boxShadow: col.hex === '#FFFFFF' ? '0 0 0 1px rgba(255,255,255,0.3)' : undefined }}
+                        style={{ background: col.hex, boxShadow: col.hex === '#FFFFFF' ? '0 0 0 1px rgba(27,22,17,0.25)' : undefined }}
                         aria-label={`Color ${col.nombre}`}
                         onClick={() => seleccionarColor(col)}
                       />
@@ -2061,7 +2045,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           )}
         </div>
         <div className="sidebar-footer">
-          <button className="btn-checkout" style={{ background: 'var(--denim)', color: 'var(--marfil)' }} onClick={moverFavsAlCarrito}>
+          <button className="btn-checkout" style={{ background: 'var(--camel)', color: 'var(--tinta)' }} onClick={moverFavsAlCarrito}>
             Mover todo al carrito
           </button>
         </div>

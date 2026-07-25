@@ -12,6 +12,7 @@ lo contrario. Después de agregarlas, hacé **Redeploy** para que tomen efecto.
 |----------|-------------|
 | `NEXT_PUBLIC_MP_PUBLIC_KEY` | Public key de MercadoPago. Se expone al browser para inicializar el checkout. |
 | `MP_ACCESS_TOKEN` | Access token (secreto) de MercadoPago. Solo server: crea preferencias y procesa el webhook de pagos. |
+| `MP_WEBHOOK_SECRET` | Clave secreta del webhook (MercadoPago → Tus integraciones → Webhooks → "Clave secreta"). Solo server: valida la firma `x-signature` de cada notificación antes de procesarla. Mientras no esté configurada, el webhook sigue funcionando pero sin esa verificación extra (ver `SECURITY.md`). |
 | `NEXT_PUBLIC_BASE_URL` | URL pública del sitio (ej: `https://finalook.vercel.app`). Se usa para las `back_urls` y el `notification_url` de MercadoPago. En local es `http://localhost:3000`. |
 | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase. La usan tanto el cliente público como el admin. |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public key de Supabase. Para lecturas desde el browser, respeta las políticas RLS. |
@@ -28,7 +29,7 @@ lo contrario. Después de agregarlas, hacé **Redeploy** para que tomen efecto.
 
 - Las variables `NEXT_PUBLIC_*` se incrustan en el bundle del cliente: no pongas
   secretos ahí.
-- `MP_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY` y `ADMIN_PASSWORD` son secretas:
-  van solo del lado server.
+- `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY` y
+  `ADMIN_PASSWORD` son secretas: van solo del lado server.
 - En desarrollo local estas mismas variables viven en `.env.local` (que está en
   `.gitignore` y no se sube al repo).
