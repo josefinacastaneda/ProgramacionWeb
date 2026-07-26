@@ -21,6 +21,9 @@ const REGLAS: Regla[] = [
   // Formulario de contacto y validación de cupones: bajo volumen normal.
   { test: (p) => p === '/api/contacto', limite: 5, ventanaMs: 60_000 },
   { test: (p) => p === '/api/cupon', limite: 20, ventanaMs: 60_000 },
+  // Suscripción al newsletter: endpoint público, hay que frenar el llenado
+  // automático de la lista con mails basura.
+  { test: (p) => p === '/api/suscribirse', limite: 5, ventanaMs: 60_000 },
 ];
 
 function obtenerIp(req: NextRequest): string {

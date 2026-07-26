@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 
 const BUCKET = 'productos';
 
+// Vercel corta los requests de más de 4,5 MB antes de que lleguen acá, así que
+// esto es un cinturón extra (y cubre el caso de correr fuera de Vercel).
+const MAX_BYTES = 4 * 1024 * 1024;
+
 // Crea el bucket "productos" (público) si todavía no existe.
 async function asegurarBucket() {
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
@@ -50,6 +54,12 @@ export async function POST(req: NextRequest) {
   for (const archivo of archivos) {
     if (!archivo.type.startsWith('image/')) {
       return NextResponse.json({ error: `"${archivo.name}" no es una imagen.` }, { status: 400 });
+    }
+    if (archivo.size > MAX_BYTES) {
+      return NextResponse.json(
+        { error: `"${archivo.name}" pesa demasiado incluso comprimida.` },
+        { status: 413 },
+      );
     }
     const buffer = Buffer.from(await archivo.arrayBuffer());
     const path = nombreSeguro(archivo.name);

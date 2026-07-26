@@ -29,6 +29,10 @@ const NOSOTROS_TEXTO = 'Negro. Denim. Noche.';
 // Mínimo de caracteres para el mensaje del formulario de contacto.
 const MENSAJE_MIN = 10;
 
+// Marca que el popup de suscripción ya se mostró (se haya suscripto o no), así
+// no vuelve a aparecer en visitas siguientes.
+const LS_SUSCRIPCION = 'finalook_suscripcion';
+
 interface CartItem {
   producto: Producto;
   talle: string;
@@ -168,6 +172,13 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ── Guía de talles ──
   const [guiaAbierta, setGuiaAbierta] = useState(false);
 
+  // ── Suscripción al newsletter (popup) ──
+  const [suscriAbierto, setSuscriAbierto] = useState(false);
+  const [suscriEmail, setSuscriEmail] = useState('');
+  const [suscriError, setSuscriError] = useState('');
+  const [suscriEnviando, setSuscriEnviando] = useState(false);
+  const [suscriCupon, setSuscriCupon] = useState('');
+
   // ── Persistencia (localStorage): evita guardar antes de hidratar. ──
   const [hidratado, setHidratado] = useState(false);
 
@@ -279,6 +290,73 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     words.forEach((w) => obs.observe(w));
     return () => obs.disconnect();
   }, []);
+
+  // ────────────────────────────────────────────────
+  // POPUP DE SUSCRIPCIÓN
+  // Aparece una sola vez, después de que la persona scrolleó un poco (señal
+  // de interés, no apenas entra). Si ya se suscribió o lo cerró, no vuelve.
+  // ────────────────────────────────────────────────
+  useEffect(() => {
+    if (localStorage.getItem(LS_SUSCRIPCION)) return;
+
+    let disparado = false;
+    const alScrollear = () => {
+      // Medio viewport: alcanza para saber que está mirando, sin interrumpir
+      // apenas abre la página.
+      if (disparado || window.scrollY < window.innerHeight * 0.5) return;
+      disparado = true;
+      window.removeEventListener('scroll', alScrollear);
+      setSuscriAbierto(true);
+    };
+    window.addEventListener('scroll', alScrollear, { passive: true });
+    return () => window.removeEventListener('scroll', alScrollear);
+  }, []);
+
+  // Cerrar el popup con Escape, igual que el resto de los overlays.
+  useEffect(() => {
+    if (!suscriAbierto) return;
+    const alTecla = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') cerrarSuscripcion();
+    };
+    window.addEventListener('keydown', alTecla);
+    return () => window.removeEventListener('keydown', alTecla);
+  }, [suscriAbierto]);
+
+  // Al cerrarlo lo marcamos como visto: no lo mostramos de nuevo aunque no se
+  // haya suscripto. Insistir sería exactamente lo que no queremos.
+  function cerrarSuscripcion() {
+    localStorage.setItem(LS_SUSCRIPCION, 'visto');
+    setSuscriAbierto(false);
+  }
+
+  async function enviarSuscripcion(e: React.FormEvent) {
+    e.preventDefault();
+    const email = suscriEmail.trim();
+    if (!emailValido(email)) {
+      setSuscriError(MSG_VALIDACION.email);
+      return;
+    }
+    setSuscriError('');
+    setSuscriEnviando(true);
+    try {
+      const res = await fetch('/api/suscribirse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setSuscriError(data.error ?? 'No pudimos suscribirte. Probá de nuevo.');
+        return;
+      }
+      localStorage.setItem(LS_SUSCRIPCION, 'suscripto');
+      setSuscriCupon(data.cupon ?? '');
+    } catch {
+      setSuscriError('No pudimos suscribirte. Probá de nuevo.');
+    } finally {
+      setSuscriEnviando(false);
+    }
+  }
 
   // ────────────────────────────────────────────────
   // REVEAL de secciones
@@ -2075,6 +2153,70 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <p className="guia-nota">Las medidas son aproximadas. Ante la duda, elegí el talle mayor.</p>
           </div>
         )}
+      </div>
+
+      {/* ═══ SUSCRIPCIÓN ═══ */}
+      <div
+        className={`suscri-overlay${suscriAbierto ? ' abierto' : ''}`}
+        onClick={cerrarSuscripcion}
+        aria-hidden={!suscriAbierto}
+      >
+        <div
+          className="suscri-popup"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="suscri-titulo"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button className="suscri-cerrar" onClick={cerrarSuscripcion} aria-label="Cerrar">
+            <CloseIcon />
+          </button>
+
+          {suscriCupon ? (
+            <>
+              <p className="suscri-label">Listo</p>
+              <h2 className="suscri-titulo" id="suscri-titulo">
+                Tu código
+              </h2>
+              <p className="suscri-codigo">{suscriCupon}</p>
+              <p className="suscri-texto">15% en tu primera compra. Usalo al pagar.</p>
+              <button className="suscri-btn" onClick={cerrarSuscripcion}>
+                Seguir viendo
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="suscri-label">Drop 01</p>
+              <h2 className="suscri-titulo" id="suscri-titulo">
+                15% en tu primera compra
+              </h2>
+              <p className="suscri-texto">Dejanos tu mail y te mandamos el código.</p>
+              <form className="suscri-form" onSubmit={enviarSuscripcion} noValidate>
+                <input
+                  className={`suscri-input${suscriError ? ' error' : ''}`}
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="tu@email.com"
+                  aria-label="Tu email"
+                  value={suscriEmail}
+                  onChange={(e) => {
+                    setSuscriEmail(e.target.value);
+                    if (suscriError) setSuscriError('');
+                  }}
+                />
+                <button className="suscri-btn" type="submit" disabled={suscriEnviando}>
+                  {suscriEnviando ? 'Enviando…' : 'Quiero el código'}
+                </button>
+              </form>
+              {suscriError && (
+                <p className="suscri-error" role="alert">
+                  {suscriError}
+                </p>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* ═══ WHATSAPP FLOTANTE ═══ */}

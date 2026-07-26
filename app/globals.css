@@ -1367,6 +1367,89 @@ select.checkout-input {
 .guia-nota { font-size: 0.6rem; color: var(--tinta-dim); letter-spacing: 0.04em; margin-top: 1.2rem; line-height: 1.5; }
 
 /* ============================================================
+   SUSCRIPCIÓN (popup)
+   Discreto a propósito: sin cuenta regresiva, sin "última oportunidad".
+   Aparece una vez, se cierra fácil y no vuelve.
+============================================================ */
+.suscri-overlay {
+  position: fixed; inset: 0; z-index: 750;
+  background: rgba(27,22,17,0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 1.5rem;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--transicion);
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.suscri-overlay.abierto { opacity: 1; pointer-events: all; }
+.suscri-popup {
+  position: relative;
+  background: var(--crudo-card);
+  border: 1px solid var(--crudo-borde);
+  width: min(420px, 100%);
+  padding: 3rem 2.5rem 2.5rem;
+  text-align: center;
+  transform: translateY(12px);
+  transition: transform var(--transicion);
+}
+.suscri-overlay.abierto .suscri-popup { transform: translateY(0); }
+.suscri-cerrar {
+  position: absolute; top: 0.9rem; right: 0.9rem;
+  background: none; border: none; color: var(--tinta-dim);
+  display: flex; padding: 4px;
+  transition: color var(--transicion);
+}
+.suscri-cerrar:hover { color: var(--tinta); }
+.suscri-label {
+  font-size: 0.55rem; letter-spacing: 0.45em; text-transform: uppercase;
+  color: var(--camel-texto); margin-bottom: 1.2rem;
+}
+.suscri-titulo {
+  font-family: var(--font-display); font-weight: 300;
+  font-size: clamp(1.5rem, 4vw, 2rem); letter-spacing: 0.03em;
+  line-height: 1.2; margin-bottom: 0.9rem;
+}
+.suscri-texto {
+  font-size: 0.78rem; line-height: 1.6; color: var(--tinta-dim);
+  letter-spacing: 0.02em; margin-bottom: 1.8rem;
+}
+.suscri-form { display: flex; flex-direction: column; gap: 0.7rem; }
+.suscri-input {
+  width: 100%; background: var(--crudo);
+  border: 1px solid var(--crudo-borde); color: var(--tinta);
+  padding: 0.85rem 1rem; font-family: var(--font-body);
+  font-size: 0.85rem; letter-spacing: 0.03em; text-align: center;
+  transition: border-color var(--transicion);
+}
+.suscri-input::placeholder { color: rgba(27,22,17,0.3); }
+.suscri-input:focus { outline: none; border-color: var(--camel-claro); }
+.suscri-input.error { border-color: var(--peligro); }
+.suscri-btn {
+  width: 100%; background: var(--tinta); color: var(--crudo); border: none;
+  padding: 0.9rem; font-size: 0.62rem; font-weight: 500;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  transition: background var(--transicion);
+}
+.suscri-btn:hover { background: var(--vino); }
+.suscri-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.suscri-error {
+  margin-top: 0.8rem; font-size: 0.68rem;
+  letter-spacing: 0.03em; color: var(--peligro);
+}
+/* Código del cupón, una vez suscripta. */
+.suscri-codigo {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 5vw, 2.2rem); letter-spacing: 0.2em;
+  color: var(--vino);
+  padding: 0.9rem 0; margin-bottom: 0.9rem;
+  border-top: 1px solid var(--crudo-borde);
+  border-bottom: 1px solid var(--crudo-borde);
+}
+
+@media (max-width: 480px) {
+  .suscri-popup { padding: 2.5rem 1.5rem 2rem; }
+}
+
+/* ============================================================
    WHATSAPP FLOTANTE
 ============================================================ */
 .whatsapp-flotante {
@@ -1726,6 +1809,11 @@ select.checkout-input {
   color: var(--peligro);
 }
 
+.admin-nota {
+  font-size: 0.75rem; line-height: 1.6; color: var(--tinta-dim);
+  letter-spacing: 0.02em; margin: -0.6rem 0 1.2rem;
+}
+
 .admin-vacio {
   text-align: center;
   color: var(--tinta-dim);
@@ -1909,4 +1997,7 @@ select.checkout-input {
   /* Pulsos e indicadores puramente decorativos. */
   .scroll-line,
   .whatsapp-flotante { animation: none !important; }
+
+  /* El popup aparece sin deslizarse. */
+  .suscri-popup { transform: none !important; }
 }

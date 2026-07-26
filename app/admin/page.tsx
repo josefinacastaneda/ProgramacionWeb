@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { comprimirImagen } from '@/lib/comprimir-imagen';
 
 interface ProductoRow {
   id: string;
@@ -42,7 +43,14 @@ interface MensajeRow {
   created_at: string;
 }
 
-type Tab = 'productos' | 'pedidos' | 'mensajes' | 'cupones';
+interface SuscriptorRow {
+  id: string;
+  email: string;
+  activo: boolean;
+  created_at: string;
+}
+
+type Tab = 'productos' | 'pedidos' | 'mensajes' | 'cupones' | 'suscriptores';
 
 // Tamaño máximo por imagen al subir (5 MB).
 const MAX_IMG_BYTES = 5 * 1024 * 1024;
@@ -87,6 +95,7 @@ export default function AdminPage() {
   const [pedidos, setPedidos] = useState<PedidoRow[]>([]);
   const [cupones, setCupones] = useState<CuponRow[]>([]);
   const [mensajes, setMensajes] = useState<MensajeRow[]>([]);
+  const [suscriptores, setSuscriptores] = useState<SuscriptorRow[]>([]);
   // Aviso global: texto + si es de éxito (ok) o de error.
   const [aviso, setAviso] = useState<{ texto: string; ok: boolean } | null>(null);
   const avisarOk = useCallback((texto: string) => setAviso({ texto, ok: true }), []);
@@ -95,6 +104,7 @@ export default function AdminPage() {
   const [form, setForm] = useState<FormProducto | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [subiendoImg, setSubiendoImg] = useState(false);
+  const [progresoImg, setProgresoImg] = useState('');
 
   const [cuponCodigo, setCuponCodigo] = useState('');
   const [cuponDescuento, setCuponDescuento] = useState('');
@@ -106,16 +116,18 @@ export default function AdminPage() {
 
   const cargarTodo = useCallback(async () => {
     try {
-      const [rp, rpe, rc, rm] = await Promise.all([
+      const [rp, rpe, rc, rm, rs] = await Promise.all([
         fetch('/api/admin/productos', { headers: headers() }),
         fetch('/api/admin/pedidos', { headers: headers() }),
         fetch('/api/admin/cupones', { headers: headers() }),
         fetch('/api/admin/mensajes', { headers: headers() }),
+        fetch('/api/admin/suscriptores', { headers: headers() }),
       ]);
       if (rp.ok) setProductos((await rp.json()).productos ?? []);
       if (rpe.ok) setPedidos((await rpe.json()).pedidos ?? []);
       if (rc.ok) setCupones((await rc.json()).cupones ?? []);
       if (rm.ok) setMensajes((await rm.json()).mensajes ?? []);
+      if (rs.ok) setSuscriptores((await rs.json()).suscriptores ?? []);
     } catch {
       avisarError('No se pudieron cargar los datos.');
     }
@@ -184,35 +196,74 @@ export default function AdminPage() {
     : [];
 
   // Sube las imágenes elegidas a Supabase Storage y guarda sus URLs en el form.
+  //
+  // Se sube DE A UNA, no todas juntas: Vercel rechaza cualquier request de más
+  // de 4,5 MB, así que mandar varias fotos en un mismo pedido fallaba apenas
+  // pasaban de dos. Antes de subir, cada foto se achica en el navegador
+  // (ver lib/comprimir-imagen.ts), con lo que una foto de celular de 4 MB
+  // queda en unos cientos de KB.
   async function subirImagenes(archivos: FileList | null) {
     if (!form || !archivos || archivos.length === 0) return;
-    // Avisamos si alguna imagen supera el límite, sin intentar subirla.
-    const pesada = Array.from(archivos).find((f) => f.size > MAX_IMG_BYTES);
-    if (pesada) {
-      avisarError(`"${pesada.name}" pesa más de 5 MB. Subí una imagen más liviana.`);
+
+    const lista = Array.from(archivos);
+    const noImagen = lista.find((f) => !f.type.startsWith('image/'));
+    if (noImagen) {
+      avisarError(`"${noImagen.name}" no es una imagen.`);
       return;
     }
+
     setSubiendoImg(true);
     setAviso(null);
+
+    const subidas: string[] = [];
+    const fallidas: string[] = [];
+
     try {
-      const fd = new FormData();
-      Array.from(archivos).forEach((f) => fd.append('files', f));
-      // No seteamos Content-Type: el browser arma el boundary del multipart.
-      const res = await fetch('/api/admin/upload', {
-        method: 'POST',
-        headers: { 'x-admin-password': password },
-        body: fd,
-      });
-      const data = await res.json();
-      if (!res.ok || !data.urls) {
-        avisarError(data.error ?? 'No se pudieron subir las imágenes.');
-        return;
+      for (let i = 0; i < lista.length; i++) {
+        setProgresoImg(`Subiendo ${i + 1} de ${lista.length}…`);
+        const original = lista[i];
+        const { archivo } = await comprimirImagen(original);
+
+        // Si incluso comprimida sigue siendo enorme, la salteamos con nombre
+        // propio en vez de cortar toda la tanda.
+        if (archivo.size > MAX_IMG_BYTES) {
+          fallidas.push(original.name);
+          continue;
+        }
+
+        const fd = new FormData();
+        fd.append('files', archivo);
+        // No seteamos Content-Type: el browser arma el boundary del multipart.
+        const res = await fetch('/api/admin/upload', {
+          method: 'POST',
+          headers: { 'x-admin-password': password },
+          body: fd,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.urls?.length) {
+          fallidas.push(original.name);
+          continue;
+        }
+        subidas.push(...data.urls);
       }
-      setForm((f) => (f ? { ...f, imagenes: [...f.imagenes, ...data.urls] } : f));
-      avisarOk(`${data.urls.length} imagen/es subida/s.`);
+
+      // Guardamos lo que sí entró aunque alguna haya fallado: así no se pierde
+      // el trabajo de las que anduvieron.
+      if (subidas.length > 0) {
+        setForm((f) => (f ? { ...f, imagenes: [...f.imagenes, ...subidas] } : f));
+      }
+
+      if (fallidas.length === 0) {
+        avisarOk(`${subidas.length} imagen/es subida/s.`);
+      } else if (subidas.length > 0) {
+        avisarError(`Subí ${subidas.length}, pero fallaron: ${fallidas.join(', ')}.`);
+      } else {
+        avisarError(`No se pudo subir: ${fallidas.join(', ')}.`);
+      }
     } catch {
       avisarError('Error al subir las imágenes.');
     } finally {
+      setProgresoImg('');
       setSubiendoImg(false);
     }
   }
@@ -290,6 +341,46 @@ export default function AdminPage() {
     } catch {
       avisarError('No se pudo cambiar el estado.');
     }
+  }
+
+  async function cambiarEstadoSuscriptor(s: SuscriptorRow) {
+    try {
+      const res = await fetch('/api/admin/suscriptores', {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ id: s.id, activo: !s.activo }),
+      });
+      if (!res.ok) {
+        avisarError('No se pudo cambiar el estado.');
+        return;
+      }
+      setSuscriptores((prev) =>
+        prev.map((x) => (x.id === s.id ? { ...x, activo: !s.activo } : x)),
+      );
+    } catch {
+      avisarError('No se pudo cambiar el estado.');
+    }
+  }
+
+  // Descarga la lista como CSV. Sirve para tener una copia propia y para
+  // importarla a cualquier herramienta de mailing.
+  function exportarSuscriptores() {
+    const activos = suscriptores.filter((s) => s.activo);
+    if (activos.length === 0) {
+      avisarError('No hay suscriptores activos para exportar.');
+      return;
+    }
+    const filas = [
+      'email,fecha_alta',
+      ...activos.map((s) => `${s.email},${new Date(s.created_at).toISOString()}`),
+    ];
+    const blob = new Blob([filas.join('\n')], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `suscriptores-finalook-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function marcarLeido(m: MensajeRow) {
@@ -431,7 +522,7 @@ export default function AdminPage() {
       </header>
 
       <nav className="admin-tabs">
-        {(['productos', 'pedidos', 'mensajes', 'cupones'] as Tab[]).map((t) => {
+        {(['productos', 'pedidos', 'mensajes', 'cupones', 'suscriptores'] as Tab[]).map((t) => {
           const sinLeer = t === 'mensajes' ? mensajes.filter((m) => !m.leido).length : 0;
           return (
             <button
@@ -560,7 +651,7 @@ export default function AdminPage() {
                       e.target.value = '';
                     }}
                   />
-                  {subiendoImg ? 'Subiendo…' : 'Subir imágenes'}
+                  {subiendoImg ? progresoImg || 'Subiendo…' : 'Subir imágenes'}
                 </label>
               </div>
 
@@ -832,6 +923,65 @@ export default function AdminPage() {
                   <tr>
                     <td colSpan={5} className="admin-vacio">
                       No hay cupones. (¿Corriste la migración 002 en Supabase?)
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {tab === 'suscriptores' && (
+        <section className="admin-seccion">
+          <div className="admin-seccion-head">
+            <h2 className="admin-h2">Suscriptores</h2>
+            <button className="admin-btn" onClick={exportarSuscriptores}>
+              Exportar CSV
+            </button>
+          </div>
+
+          <p className="admin-nota">
+            {suscriptores.filter((s) => s.activo).length} activo/s de {suscriptores.length}.
+            El envío masivo desde el panel queda pendiente hasta verificar el dominio
+            finalook.com.ar en Resend.
+          </p>
+
+          <div className="admin-tabla-wrap">
+            <table className="admin-tabla">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Alta</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {suscriptores.map((s) => (
+                  <tr key={s.id} className={s.activo ? undefined : 'admin-inactivo'}>
+                    <td data-label="Email">{s.email}</td>
+                    <td data-label="Alta">
+                      {new Date(s.created_at).toLocaleDateString('es-AR')}
+                    </td>
+                    <td data-label="Estado">
+                      <span className={`admin-pill ${s.activo ? 'ok' : 'off'}`}>
+                        {s.activo ? 'activo' : 'baja'}
+                      </span>
+                    </td>
+                    <td data-label="Acciones">
+                      <div className="admin-acciones-col">
+                        <button className="admin-link" onClick={() => cambiarEstadoSuscriptor(s)}>
+                          {s.activo ? 'Dar de baja' : 'Reactivar'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {suscriptores.length === 0 && (
+                  <tr>
+                    <td className="admin-vacio" colSpan={4}>
+                      Todavía no hay suscriptores.
                     </td>
                   </tr>
                 )}
