@@ -23,8 +23,8 @@ import {
 } from '@/lib/validaciones';
 
 const NOMBRE_TIENDA = process.env.NEXT_PUBLIC_NOMBRE_TIENDA || 'FINALOOK STUDIO';
-const NOSOTROS_TEXTO =
-  'Diseñamos prendas con foco en el detalle y la calidad. Cada pieza está pensada para durar y para usarse todos los días.';
+// Pocas palabras: el reveal palabra por palabra las va encendiendo al scrollear.
+const NOSOTROS_TEXTO = 'Negro. Denim. Noche.';
 
 // Mínimo de caracteres para el mensaje del formulario de contacto.
 const MENSAJE_MIN = 10;
@@ -130,8 +130,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   const [errores, setErrores] = useState({ nombre: false, email: false, mensaje: false });
   const [formEnviado, setFormEnviado] = useState(false);
   const [enviandoContacto, setEnviandoContacto] = useState(false);
-  const [calcPais, setCalcPais] = useState('');
-  const [calcResultado, setCalcResultado] = useState<string | null>(null);
   const [comprando, setComprando] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
 
@@ -846,18 +844,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   }, []);
 
   // ────────────────────────────────────────────────
-  // CALCULADORA DE ENVÍO
-  // ────────────────────────────────────────────────
-  function calcularEnvio() {
-    if (!calcPais) {
-      mostrarToast('Seleccioná tu país primero');
-      return;
-    }
-    const precio = calcPais === 'argentina' ? '$10.000 ARS' : '$20.000 ARS (internacional)';
-    setCalcResultado(`Costo de envío estimado: ${precio}`);
-  }
-
-  // ────────────────────────────────────────────────
   // FORMULARIO DE CONTACTO
   // ────────────────────────────────────────────────
   async function enviarContacto(e: React.FormEvent) {
@@ -944,9 +930,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               <a href="#nosotros">Nosotros</a>
             </li>
             <li className="nav-item">
-              <a href="#envios">Envíos</a>
-            </li>
-            <li className="nav-item">
               <a href="#contacto">Contacto</a>
             </li>
           </ul>
@@ -1003,14 +986,14 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           <div className="hero-grain" aria-hidden="true" />
 
           <div className="hero-contenido" ref={heroContenidoRef}>
-            <p className="hero-drop-label" aria-label="Drop número uno">
-              DROP — 01
+            <p className="hero-drop-label" aria-label="Drop número uno — Total Black">
+              DROP 01 — TOTAL BLACK
             </p>
             <h1 className="hero-titulo" ref={heroTituloRef}>
               {logoMain}
               <span className="hero-studio-sub">{logoStudio}</span>
             </h1>
-            <p className="hero-tagline">curated denim pieces</p>
+            <p className="hero-tagline">night out</p>
           </div>
 
           <div className="hero-scroll-indicator" aria-hidden="true">
@@ -1022,15 +1005,15 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
         {/* ═══ NOSOTROS ═══ */}
         <section className="nosotros-section reveal-section" id="nosotros" aria-labelledby="nosotros-titulo">
           <div className="nosotros-inner">
-            <span className="nosotros-label">Sobre nosotros</span>
+            <span className="nosotros-label">Drop 01</span>
             <p className="nosotros-texto-animado" ref={nosotrosRef} aria-label="Texto sobre la marca">
               {NOSOTROS_TEXTO.split(/\s+/).map((palabra, i) => (
-                <span key={i} className="reveal-word" style={{ transitionDelay: `${i * 0.04}s` }}>
+                <span key={i} className="reveal-word" style={{ transitionDelay: `${i * 0.12}s` }}>
                   {palabra}{' '}
                 </span>
               ))}
             </p>
-            <p className="nosotros-firma">Buenos Aires — Drop 01 — 2026</p>
+            <p className="nosotros-firma">Buenos Aires — 2026</p>
           </div>
         </section>
 
@@ -1041,7 +1024,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               Colección
             </h2>
             <div className="seccion-linea" aria-hidden="true" />
-            <span className="seccion-sub">Drop 01 — 2026</span>
+            <span className="seccion-sub">Curated denim pieces — Buenos Aires</span>
           </div>
 
           <div className="toolbar" role="group" aria-label="Opciones de la colección">
@@ -1218,63 +1201,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 );
               })
             )}
-          </div>
-        </section>
-
-        {/* ═══ ENVÍOS ═══ */}
-        <section className="envios-section reveal-section" id="envios" aria-labelledby="envios-titulo">
-          <div className="envios-inner">
-            <div className="seccion-header">
-              <h2 className="seccion-titulo" id="envios-titulo">
-                Envíos
-              </h2>
-              <div className="seccion-linea" aria-hidden="true" />
-            </div>
-
-            <div className="envios-grid">
-              <div className="envio-card">
-                <span className="envio-icon" aria-hidden="true">◈</span>
-                <p className="envio-titulo">Argentina</p>
-                <p className="envio-precio">$10.000</p>
-                <p className="envio-desc">Envío a todo el país. Tiempo estimado 3 a 7 días hábiles.</p>
-              </div>
-              <div className="envio-card">
-                <span className="envio-icon" aria-hidden="true">◉</span>
-                <p className="envio-titulo">Internacional</p>
-                <p className="envio-precio">$20.000</p>
-                <p className="envio-desc">Envíos internacionales. Tiempo estimado 10 a 20 días hábiles.</p>
-              </div>
-              <div className="envio-card">
-                <span className="envio-icon" aria-hidden="true">◎</span>
-                <p className="envio-titulo">Devoluciones</p>
-                <p className="envio-precio">30 días</p>
-                <p className="envio-desc">Aceptamos devoluciones dentro de los 30 días de recibido el paquete.</p>
-              </div>
-            </div>
-
-            <div className="calc-box">
-              <h3>Calculá tu envío</h3>
-              <div className="calc-form">
-                <div className="calc-grupo">
-                  <label className="calc-label" htmlFor="calc-pais">
-                    País de destino
-                  </label>
-                  <select className="calc-select" id="calc-pais" value={calcPais} onChange={(e) => setCalcPais(e.target.value)}>
-                    <option value="">Seleccioná tu país</option>
-                    <option value="argentina">Argentina</option>
-                    <option value="internacional">Internacional</option>
-                  </select>
-                </div>
-                <button className="btn-calc" onClick={calcularEnvio}>
-                  Calcular
-                </button>
-              </div>
-              {calcResultado && (
-                <p className="calc-resultado visible" aria-live="polite">
-                  {calcResultado}
-                </p>
-              )}
-            </div>
           </div>
         </section>
 
@@ -1833,6 +1759,10 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                   <option value="argentina">Argentina — envío {formatearPrecio(10000)}</option>
                   <option value="internacional">Internacional — envío {formatearPrecio(20000)}</option>
                 </select>
+                <p className="checkout-nota">
+                  Enviamos a todo el país (3 a 7 días hábiles) y al exterior (10 a 20 días).
+                  Devoluciones dentro de los 30 días.
+                </p>
               </div>
 
               <div className="checkout-sep">Dirección de envío</div>

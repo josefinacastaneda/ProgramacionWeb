@@ -2,9 +2,12 @@
    VARIABLES – paleta cruda/terrosa, editorial, acento borravino
 ============================================================ */
 :root {
-  --crudo:         #ECE4D6;
-  --crudo-card:    #F3EEE4;
-  --crudo-medio:   #E1D5C2;
+  /* Base clara y cálida, más blanca que un nude: las fotos de producto tienen
+     fondo nude, así que la página tiene que ser más clara para que la prenda
+     se recorte y no se funda con el fondo. Sigue sin ser blanco puro. */
+  --crudo:         #F6F3EE;
+  --crudo-card:    #FCFAF7;
+  --crudo-medio:   #EBE5DA;
   --crudo-borde:   rgba(27,22,17,0.12);
 
   --tinta:         #1B1611;
@@ -14,10 +17,17 @@
   --acento:        #8C4A52;
   --acento-tenue:  rgba(140,74,82,0.14);
 
+  /* Oxblood — sólo para el acento animado del hero (Drop 01, total black). */
+  --vino:          #6E2233;
+
   /* Camel – neutro cálido, el color de trabajo para bordes/hover/foco */
   --camel:         #C6AF8E;
   --camel-claro:   #D8C6A9;
   --camel-oscuro:  #A78F6B;
+  /* Versión legible del camel para textos chicos sobre fondo claro: el
+     camel-claro sirve para bordes y hovers, pero como color de letra sobre
+     --crudo queda sin contraste. */
+  --camel-texto:   #8A7048;
   --camel-tenue:   rgba(198,175,142,0.18);
   --camel-borde:   rgba(198,175,142,0.5);
 
@@ -63,7 +73,7 @@ header {
   transition: background var(--transicion), border-color var(--transicion);
 }
 header.scrolled {
-  background: rgba(236,228,214,0.92);
+  background: rgba(246,243,238,0.92);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--crudo-borde);
 }
@@ -86,7 +96,7 @@ nav {
   color: var(--tinta);
   white-space: nowrap;
 }
-.nav-logo .studio { color: var(--camel-claro); font-weight: 300; letter-spacing: 0.6em; }
+.nav-logo .studio { color: var(--camel-texto); font-weight: 300; letter-spacing: 0.6em; }
 
 /* Links centrales */
 .nav-links {
@@ -123,7 +133,7 @@ nav {
   top: calc(100% + 1.2rem);
   left: 50%;
   transform: translateX(-50%) translateY(-6px);
-  background: rgba(243,238,228,0.98);
+  background: rgba(252,250,247,0.98);
   border: 1px solid var(--crudo-borde);
   min-width: 150px;
   padding: 0.4rem 0;
@@ -231,7 +241,7 @@ nav {
   font-size: 0.55rem;
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  color: var(--camel-claro);
+  color: var(--camel-texto);
   margin-bottom: 2.5rem;
   opacity: 0;
   animation: fadeUpIn 1s ease 0.3s forwards;
@@ -243,12 +253,15 @@ nav {
   letter-spacing: 0.18em;
   line-height: 0.95;
   text-transform: uppercase;
+  /* Casi todo el título es tinta. Una banda angosta de oxblood viaja con el
+     shimmer: aparece y se disuelve sola, sin volverse protagónica. Es el guiño
+     de "look de noche" del Drop 01. */
   background: linear-gradient(
     135deg,
     var(--tinta) 0%,
-    var(--acento) 30%,
-    var(--tinta) 48%,
-    var(--camel-claro) 65%,
+    var(--tinta) 28%,
+    var(--vino) 36%,
+    var(--tinta) 46%,
     var(--tinta) 100%
   );
   background-size: 300% auto;
@@ -267,8 +280,8 @@ nav {
   font-weight: 200;
   letter-spacing: 0.8em;
   text-transform: uppercase;
-  color: var(--camel-claro);
-  -webkit-text-fill-color: var(--camel-claro);
+  color: var(--camel-texto);
+  -webkit-text-fill-color: var(--camel-texto);
   margin-top: 1rem;
   opacity: 0;
   animation: fadeUpIn 1s ease 0.8s forwards;
@@ -324,7 +337,7 @@ nav {
   font-size: 0.58rem;
   letter-spacing: 0.5em;
   text-transform: uppercase;
-  color: var(--camel-claro);
+  color: var(--camel-texto);
   margin-bottom: 3.5rem;
   display: block;
   opacity: 0;
@@ -352,7 +365,7 @@ nav {
   font-size: 0.6rem;
   letter-spacing: 0.4em;
   text-transform: uppercase;
-  color: var(--camel-claro);
+  color: var(--camel-texto);
 }
 
 /* ============================================================
@@ -384,7 +397,7 @@ nav {
   font-size: 0.58rem;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--camel-claro);
+  color: var(--camel-texto);
 }
 
 /* Toolbar */
@@ -494,7 +507,7 @@ nav {
 .img-arrow {
   position: absolute;
   top: 50%; transform: translateY(-50%);
-  background: rgba(236,228,214,0.75);
+  background: rgba(246,243,238,0.75);
   border: 1px solid rgba(27,22,17,0.1);
   color: var(--tinta);
   width: 32px; height: 32px;
@@ -557,7 +570,7 @@ nav {
 }
 .producto-cat {
   font-size: 0.55rem; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--camel-claro); margin-bottom: 0.5rem;
+  color: var(--camel-texto); margin-bottom: 0.5rem;
 }
 .producto-footer-card {
   display: flex; justify-content: space-between; align-items: center;
@@ -602,7 +615,7 @@ nav {
 }
 .modal-arrow {
   position: absolute; top: 50%; transform: translateY(-50%);
-  background: rgba(236,228,214,0.7);
+  background: rgba(246,243,238,0.7);
   border: 1px solid var(--crudo-borde);
   color: var(--tinta);
   width: 46px; height: 46px;
@@ -632,7 +645,7 @@ nav {
 }
 .modal-close {
   position: fixed; top: 1.5rem; right: 1.5rem; z-index: 10;
-  background: rgba(236,228,214,0.9);
+  background: rgba(246,243,238,0.9);
   border: 1px solid var(--crudo-borde);
   color: var(--tinta);
   width: 44px; height: 44px;
@@ -642,7 +655,7 @@ nav {
 .modal-close:hover { background: var(--camel-tenue); }
 .modal-cat-label {
   font-size: 0.58rem; letter-spacing: 0.35em;
-  text-transform: uppercase; color: var(--camel-claro);
+  text-transform: uppercase; color: var(--camel-texto);
 }
 .modal-nombre {
   font-family: var(--font-display);
@@ -659,7 +672,7 @@ nav {
 }
 .modal-material {
   font-size: 0.6rem; letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--camel-claro);
+  color: var(--camel-texto);
   padding: 0.75rem 0;
   border-top: 1px solid var(--crudo-borde); border-bottom: 1px solid var(--crudo-borde);
 }
@@ -725,71 +738,6 @@ nav {
 .btn-modal-fav.activo .heart-icon { fill: var(--tinta); }
 
 /* ============================================================
-   ENVÍOS
-============================================================ */
-.envios-section {
-  padding: 8rem 2.5rem;
-  background: var(--crudo-card);
-  border-top: 1px solid var(--crudo-borde);
-  border-bottom: 1px solid var(--crudo-borde);
-}
-.envios-inner { max-width: 1000px; margin: 0 auto; }
-.envios-grid {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 1.5rem; margin: 4rem 0 3rem;
-}
-.envio-card {
-  padding: 2rem; border: 1px solid var(--crudo-borde);
-  transition: border-color var(--transicion);
-}
-.envio-card:hover { border-color: var(--camel-borde); }
-.envio-icon { font-size: 1.3rem; margin-bottom: 1rem; color: var(--camel-claro); display: block; }
-.envio-titulo {
-  font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase;
-  color: var(--camel-claro); margin-bottom: 0.5rem;
-}
-.envio-precio {
-  font-family: var(--font-display); font-size: 1.6rem;
-  color: var(--tinta); margin-bottom: 0.4rem;
-}
-.envio-desc { font-size: 0.72rem; color: var(--tinta-dim); line-height: 1.6; }
-
-/* Calculadora */
-.calc-box {
-  padding: 2rem; border: 1px solid var(--camel-borde); background: var(--camel-tenue);
-}
-.calc-box h3 {
-  font-family: var(--font-display); font-size: 1.2rem; font-weight: 400;
-  margin-bottom: 1.5rem; letter-spacing: 0.05em;
-}
-.calc-form { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
-.calc-grupo { flex: 1; min-width: 150px; }
-.calc-label {
-  font-size: 0.58rem; letter-spacing: 0.2em; text-transform: uppercase;
-  color: var(--tinta-dim); display: block; margin-bottom: 0.5rem;
-}
-.calc-select {
-  width: 100%; background: var(--crudo); border: 1px solid var(--crudo-borde);
-  color: var(--tinta); font-family: var(--font-body);
-  font-size: 0.85rem; padding: 0.7rem 1rem;
-  cursor: pointer; appearance: none;
-  transition: border-color var(--transicion);
-}
-.calc-select:hover { border-color: var(--camel-borde); }
-.calc-select option { background: var(--crudo-card); }
-.btn-calc {
-  background: var(--camel); color: var(--tinta); border: none;
-  padding: 0.7rem 1.5rem; font-size: 0.6rem;
-  letter-spacing: 0.2em; text-transform: uppercase;
-  transition: background var(--transicion); white-space: nowrap;
-}
-.btn-calc:hover { background: var(--camel-claro); }
-.calc-resultado {
-  margin-top: 1.2rem; font-family: var(--font-display);
-  font-size: 1.1rem; color: var(--acento); display: none;
-}
-.calc-resultado.visible { display: block; }
-
-/* ============================================================
    CONTACTO
 ============================================================ */
 .contacto-section { padding: 8rem 2.5rem; max-width: 680px; margin: 0 auto; text-align: center; }
@@ -828,7 +776,7 @@ nav {
 }
 .contacto-dato { font-size: 0.68rem; letter-spacing: 0.12em; color: var(--tinta-dim); }
 .contacto-dato a { transition: color var(--transicion); }
-.contacto-dato a:hover { color: var(--camel-claro); }
+.contacto-dato a:hover { color: var(--camel-texto); }
 
 /* ============================================================
    FOOTER
@@ -847,7 +795,7 @@ footer {
   font-family: var(--font-display); font-size: 1rem;
   letter-spacing: 0.35em; text-transform: uppercase;
 }
-.footer-logo .studio { color: var(--camel-claro); font-weight: 300; }
+.footer-logo .studio { color: var(--camel-texto); font-weight: 300; }
 .footer-copy { font-size: 0.58rem; letter-spacing: 0.15em; color: var(--tinta-dim); }
 
 /* ============================================================
@@ -922,7 +870,7 @@ footer {
 }
 .sidebar-item-detalle {
   font-size: 0.6rem; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--camel-claro); margin-bottom: 0.4rem;
+  color: var(--camel-texto); margin-bottom: 0.4rem;
 }
 .sidebar-item-precio { font-family: var(--font-display); font-size: 0.95rem; color: var(--tinta-dim); }
 .sidebar-cantidad {
@@ -1013,6 +961,12 @@ footer {
   margin-top: 0.9rem; font-size: 0.6rem; letter-spacing: 0.08em;
   text-align: center; color: var(--tinta-dim);
 }
+/* Nota de envíos y devoluciones: antes era una sección entera del home; ahora
+   vive acá, que es donde el dato sirve (al elegir el país). */
+.checkout-nota {
+  margin-top: 0.5rem; font-size: 0.64rem; line-height: 1.6;
+  letter-spacing: 0.03em; color: var(--tinta-dim);
+}
 .checkout-error {
   margin-top: 0.9rem; padding: 0.7rem 0.9rem;
   font-size: 0.68rem; line-height: 1.5; text-align: center;
@@ -1052,7 +1006,7 @@ footer {
 ============================================================ */
 .search-overlay {
   position: fixed; inset: 0; z-index: 600;
-  background: rgba(236,228,214,0.98);
+  background: rgba(246,243,238,0.98);
   display: flex; flex-direction: column;
   align-items: center; justify-content: flex-start;
   padding-top: 18vh;
@@ -1105,7 +1059,7 @@ footer {
 }
 .search-no-results.visible { display: block; }
 .search-no-results a {
-  color: var(--camel-claro); text-decoration: underline;
+  color: var(--camel-texto); text-decoration: underline;
   text-underline-offset: 3px;
 }
 
@@ -1180,7 +1134,6 @@ footer {
   }
   .modal-galeria { position: relative; height: 60vh; height: 60dvh; }
   .modal-info { padding: 1.5rem 1.5rem 3.5rem; border-left: none; overflow: visible; }
-  .envios-grid { grid-template-columns: 1fr; }
 
   /* En anchos intermedios, los elementos del footer se centran y envuelven
      en vez de encimarse. */
@@ -1278,7 +1231,7 @@ footer {
   display: flex; justify-content: space-between; align-items: baseline;
 }
 .guia-talles-link {
-  background: none; border: none; color: var(--camel-claro);
+  background: none; border: none; color: var(--camel-texto);
   font-family: var(--font-body); font-size: 0.58rem; letter-spacing: 0.18em;
   text-transform: uppercase; text-decoration: underline; text-underline-offset: 3px;
   cursor: pointer; transition: color var(--transicion); margin-bottom: 0.7rem;
@@ -1403,7 +1356,7 @@ select.checkout-input {
 .guia-tabla { width: 100%; border-collapse: collapse; }
 .guia-tabla th {
   font-size: 0.55rem; letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--camel-claro); text-align: left; padding: 0.6rem 0.4rem;
+  color: var(--camel-texto); text-align: left; padding: 0.6rem 0.4rem;
   border-bottom: 1px solid var(--crudo-borde);
 }
 .guia-tabla td {
@@ -1441,7 +1394,7 @@ select.checkout-input {
   font-size: 0.62rem; letter-spacing: 0.14em;
   transition: color var(--transicion);
 }
-.footer-instagram:hover { color: var(--camel-claro); }
+.footer-instagram:hover { color: var(--camel-texto); }
 
 /* ============================================================
    PANEL DE ADMINISTRACIÓN  (/admin)
@@ -1517,7 +1470,7 @@ select.checkout-input {
   cursor: pointer;
   transition: background var(--transicion), opacity var(--transicion);
 }
-.admin-btn:hover { background: var(--camel-claro); color: var(--crudo); }
+.admin-btn:hover { background: var(--camel-oscuro); color: var(--tinta); }
 .admin-btn:disabled { opacity: 0.5; cursor: default; }
 
 .admin-btn-ghost {
@@ -1695,7 +1648,7 @@ select.checkout-input {
   position: absolute; top: 3px; right: 3px;
   width: 22px; height: 22px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(236,228,214,0.88); color: var(--tinta);
+  background: rgba(246,243,238,0.88); color: var(--tinta);
   border: 1px solid var(--crudo-borde); border-radius: 50%;
   font-size: 1rem; cursor: pointer;
 }
