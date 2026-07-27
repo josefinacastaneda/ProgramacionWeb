@@ -20,6 +20,17 @@ interface ProductoBody {
   drop?: string;
 }
 
+// PostgREST tira un error críptico cuando falta una columna ("Could not find
+// the 'drop' column ... in the schema cache"). Lo traducimos a algo accionable
+// para no dejar a nadie adivinando por qué no puede guardar un producto.
+function mensajeError(error: { message?: string; code?: string }): string {
+  const m = error.message ?? 'Error desconocido';
+  if (/could not find the '?drop'? column/i.test(m) || error.code === 'PGRST204') {
+    return 'Falta la columna "drop" en la tabla productos. Corré la migración 007_drop_producto.sql en el SQL Editor de Supabase.';
+  }
+  return m;
+}
+
 function noAutorizado() {
   return NextResponse.json({ error: 'No autorizado.' }, { status: 401 });
 }
@@ -49,7 +60,7 @@ export async function GET(req: NextRequest) {
     .from('productos')
     .select('*')
     .order('created_at', { ascending: true });
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: mensajeError(error) }, { status: 500 });
   return NextResponse.json({ productos: data });
 }
 
@@ -61,7 +72,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Nombre y categoría son obligatorios.' }, { status: 400 });
   }
   const { data, error } = await supabaseAdmin.from('productos').insert(fila).select().single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: mensajeError(error) }, { status: 500 });
   return NextResponse.json({ producto: data });
 }
 
@@ -76,7 +87,7 @@ export async function PUT(req: NextRequest) {
     .eq('id', body.id)
     .select()
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: mensajeError(error) }, { status: 500 });
   return NextResponse.json({ producto: data });
 }
 
@@ -92,7 +103,7 @@ export async function PATCH(req: NextRequest) {
     .eq('id', body.id)
     .select()
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: mensajeError(error) }, { status: 500 });
   return NextResponse.json({ producto: data });
 }
 
@@ -102,6 +113,6 @@ export async function DELETE(req: NextRequest) {
   const id = new URL(req.url).searchParams.get('id');
   if (!id) return NextResponse.json({ error: 'Falta el id.' }, { status: 400 });
   const { error } = await supabaseAdmin.from('productos').delete().eq('id', id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: mensajeError(error) }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

@@ -9,8 +9,11 @@ import {
   DROPS,
   formatearPrecio,
   filtrarPorCategoria,
+  categoriasDe,
   filtrarPorDrop,
   ordenarPorPrecio,
+  sinStock,
+  MONTO_RESERVA,
   buscarProductos,
 } from '@/lib/productos';
 import {
@@ -174,6 +177,11 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     });
     return m;
   });
+
+  // ── Reserva de prendas sin stock ──
+  const [reservaEmail, setReservaEmail] = useState('');
+  const [reservaError, setReservaError] = useState('');
+  const [reservando, setReservando] = useState(false);
 
   // ── Guía de talles ──
   const [guiaAbierta, setGuiaAbierta] = useState(false);
@@ -401,6 +409,36 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       grillas.forEach((g) => g.classList.remove('grilla-anim'));
     };
   }, [seleccion, filtroActivo, sortActivo, productos]);
+
+  // Reserva de una prenda sin stock: cobra la seña por MercadoPago. El monto
+  // y la validación de que realmente no hay stock los pone el server.
+  async function reservar() {
+    if (!modalProd) return;
+    const email = reservaEmail.trim();
+    if (!emailValido(email)) {
+      setReservaError(MSG_VALIDACION.email);
+      return;
+    }
+    setReservaError('');
+    setReservando(true);
+    try {
+      const res = await fetch('/api/reservar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ producto_id: modalProd.id, email }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.init_point) {
+        setReservaError(data.error ?? 'No pudimos iniciar la reserva.');
+        return;
+      }
+      window.location.href = data.init_point;
+    } catch {
+      setReservaError('No pudimos iniciar la reserva.');
+    } finally {
+      setReservando(false);
+    }
+  }
 
   // ────────────────────────────────────────────────
   // Persistencia de carrito y favoritos (localStorage)
@@ -835,6 +873,9 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     setReseEstrellas(0);
     setReseHover(0);
     setReseComentario('');
+    // El formulario de reserva también arranca limpio en cada prenda.
+    setReservaEmail('');
+    setReservaError('');
     const id = modalProd.id;
     fetch(`/api/resenas?id=${encodeURIComponent(id)}`)
       .then((r) => r.json())
@@ -992,18 +1033,26 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
   // El óvalo funciona como un filtro más: tocar el lado que ya está activo
   // lo deselecciona y vuelve a la colección completa.
-  function elegirLado(lado: Mundo) {
+  function elegirLado(lado: Mundo, subirAlTope = false) {
     setSeleccion((actual) => (actual === lado ? 'todo' : lado));
+    // La categoría elegida puede no existir en el drop nuevo; si no reseteamos,
+    // la grilla queda vacía sin que se entienda por qué.
+    setFiltroActivo('todos');
+    // El óvalo de abajo cambia la colección que está ARRIBA: sin esto el
+    // cambio pasa fuera de pantalla y parece que no hizo nada.
+    if (subirAlTope) {
+      const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      coleccionRef.current?.scrollIntoView({
+        behavior: suave ? 'smooth' : 'auto',
+        block: 'start',
+      });
+    }
   }
 
   const verTodo = seleccion === 'todo';
   const dropsVisibles = verTodo ? DROPS : DROPS.filter((d) => d.mundo === seleccion);
-  const categorias: { label: string; value: string }[] = [
-    { label: 'Todos', value: 'todos' },
-    { label: 'Tops', value: 'tops' },
-    { label: 'Vestidos', value: 'vestidos' },
-    { label: 'Camisas', value: 'camisas' },
-  ];
+  // Categorías del menú del nav: las de todo el catálogo.
+  const categorias = categoriasDe(productos);
 
   // Grilla de prendas. Se usa igual en las tres vistas (Night, Day y Ver
   // todo), así el modal, la regla de talle y el carrito son exactamente los
@@ -1178,9 +1227,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               </div>
             </li>
             <li className="nav-item">
-              <a href="/nosotros">Nosotros</a>
-            </li>
-            <li className="nav-item">
               <a href="#contacto">Contacto</a>
             </li>
           </ul>
@@ -1237,9 +1283,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
           <div className="hero-grain" aria-hidden="true" />
 
           <div className="hero-contenido" ref={heroContenidoRef}>
-            <p className="hero-drop-label" aria-label="Drop número uno — Total Black">
-              DROP 01 — TOTAL BLACK
-            </p>
             <h1 className="hero-titulo" ref={heroTituloRef}>
               {logoMain}
               <span className="hero-studio-sub">{logoStudio}</span>
@@ -1273,7 +1316,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               <div className="coleccion-section">
                 <div className="drop-cartel">
                   <p className="drop-cartel-titulo">
-                    {d.numero} : {d.nombre}
+                    Drop <span className="drop-cartel-guion">—</span> {d.id} : {d.nombre}
                     <sup className="drop-cartel-r" aria-hidden="true">®</sup>
                   </p>
                   <p className="drop-cartel-sub">curated denim pieces</p>
@@ -1281,7 +1324,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
                 <div className="toolbar" role="group" aria-label="Opciones de la colección">
                   <div className="filtros-grupo" role="group" aria-label="Filtrar por categoría">
-                    {categorias.map((c) => (
+                    {categoriasDe(filtrarPorDrop(productos, d.id)).map((c) => (
                       <button
                         key={c.value}
                         className={`filtro-btn${filtroActivo === c.value ? ' activo' : ''}`}
@@ -1344,7 +1387,10 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 </p>
 
                 <div className="toggle-zona toggle-zona-fin">
-                  <ToggleMundo seleccion={seleccion} onElegir={elegirLado} />
+                  <ToggleMundo
+                    seleccion={seleccion}
+                    onElegir={(lado) => elegirLado(lado, true)}
+                  />
                 </div>
               </div>
             </div>
@@ -1603,19 +1649,68 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
                 </div>
               </div>
 
-              <div className="modal-acciones">
-                <button className="btn-modal-cart" onClick={agregarDesdeModal}>
-                  Agregar al carrito
-                </button>
-                <button
-                  className={`btn-modal-fav${esFavorito(modalProd.id) ? ' activo' : ''}`}
-                  aria-label="Agregar a favoritos"
-                  onClick={toggleFavoritoModal}
-                >
-                  <HeartIcon filled={esFavorito(modalProd.id)} />
-                  Guardar
-                </button>
-              </div>
+              {/* Sin stock: en vez de agregar al carrito se ofrece reservar. */}
+              {sinStock(modalProd) ? (
+                <div className="reserva-bloque">
+                  <p className="reserva-texto">
+                    Sin stock por ahora. Podés reservarlo: pagás $10.000 y, si vuelve a
+                    entrar esta semana, te avisamos y te lo guardamos. Si no lo
+                    conseguimos, te devolvemos los $10.000 completos. Después esos
+                    $10.000 se descuentan del precio.
+                  </p>
+                  <p className="reserva-precio">
+                    Con la reserva te queda en{' '}
+                    {formatearPrecio(Math.max(0, modalProd.precio - MONTO_RESERVA))}
+                  </p>
+                  <div className="reserva-form">
+                    <input
+                      className={`reserva-input${reservaError ? ' error' : ''}`}
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      placeholder="tu@email.com"
+                      aria-label="Tu email para avisarte"
+                      value={reservaEmail}
+                      onChange={(e) => {
+                        setReservaEmail(e.target.value);
+                        if (reservaError) setReservaError('');
+                      }}
+                    />
+                    <button className="btn-modal-cart" onClick={reservar} disabled={reservando}>
+                      {reservando ? 'Redirigiendo…' : 'Reservar'}
+                    </button>
+                  </div>
+                  {reservaError && (
+                    <p className="reserva-error" role="alert">
+                      {reservaError}
+                    </p>
+                  )}
+                  <div className="modal-acciones">
+                    <button
+                      className={`btn-modal-fav${esFavorito(modalProd.id) ? ' activo' : ''}`}
+                      aria-label="Agregar a favoritos"
+                      onClick={toggleFavoritoModal}
+                    >
+                      <HeartIcon filled={esFavorito(modalProd.id)} />
+                      Guardar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="modal-acciones">
+                  <button className="btn-modal-cart" onClick={agregarDesdeModal}>
+                    Agregar al carrito
+                  </button>
+                  <button
+                    className={`btn-modal-fav${esFavorito(modalProd.id) ? ' activo' : ''}`}
+                    aria-label="Agregar a favoritos"
+                    onClick={toggleFavoritoModal}
+                  >
+                    <HeartIcon filled={esFavorito(modalProd.id)} />
+                    Guardar
+                  </button>
+                </div>
+              )}
 
               {/* ── Reseñas ── */}
               <div className="modal-resenas">

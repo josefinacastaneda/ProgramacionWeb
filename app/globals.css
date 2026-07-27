@@ -494,6 +494,15 @@ nav {
   text-transform: uppercase;
   line-height: 1.2;
 }
+/* El guion va en su propio span: con letter-spacing alto queda corrido a la
+   izquierda porque el espaciado se agrega DESPUÉS de cada carácter. Anulando
+   el tracking y repartiendo el margen a mano queda centrado y parejo. */
+.drop-cartel-guion {
+  letter-spacing: 0;
+  margin: 0 0.16em 0 0.1em;
+  display: inline-block;
+  transform: translateY(-0.06em);
+}
 .drop-cartel-r {
   font-size: 0.34em;
   letter-spacing: 0;
@@ -925,6 +934,45 @@ nav {
 }
 .btn-modal-fav .heart-icon { transition: fill 0.3s ease; }
 .btn-modal-fav.activo .heart-icon { fill: var(--tinta); }
+
+/* ── RESERVA (prenda sin stock) ───────────────────────────── */
+.reserva-bloque {
+  margin-top: 0.5rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--crudo-borde);
+}
+.reserva-texto {
+  font-size: 0.78rem; line-height: 1.7;
+  color: var(--tinta-dim); letter-spacing: 0.01em;
+}
+.reserva-precio {
+  margin-top: 0.9rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem; letter-spacing: 0.03em;
+  color: var(--tinta);
+}
+.reserva-form {
+  display: flex; gap: 0.6rem; margin-top: 1.2rem; flex-wrap: wrap;
+}
+.reserva-form .btn-modal-cart { flex: 1; min-width: 150px; }
+.reserva-input {
+  flex: 1; min-width: 190px;
+  background: var(--crudo-medio);
+  border: 1px solid var(--crudo-borde);
+  color: var(--tinta);
+  padding: 0 0.9rem;
+  font-family: var(--font-body);
+  font-size: 0.85rem; letter-spacing: 0.03em;
+  transition: border-color var(--transicion);
+}
+.reserva-input::placeholder { color: var(--tinta-dim); }
+.reserva-input:focus { outline: none; border-color: var(--camel-claro); }
+.reserva-input.error { border-color: var(--peligro); }
+.reserva-error {
+  margin-top: 0.7rem; font-size: 0.7rem;
+  letter-spacing: 0.02em; color: var(--peligro);
+}
+.reserva-bloque .modal-acciones { margin-top: 1rem; }
 
 /* ============================================================
    CONTACTO

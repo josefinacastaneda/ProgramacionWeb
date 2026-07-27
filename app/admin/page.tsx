@@ -44,6 +44,16 @@ interface MensajeRow {
   created_at: string;
 }
 
+interface ReservaRow {
+  id: string;
+  producto_nombre: string | null;
+  email: string;
+  monto: number | null;
+  estado: string;
+  mp_payment_id: string | null;
+  created_at: string;
+}
+
 interface SuscriptorRow {
   id: string;
   email: string;
@@ -51,7 +61,7 @@ interface SuscriptorRow {
   created_at: string;
 }
 
-type Tab = 'productos' | 'pedidos' | 'mensajes' | 'cupones' | 'suscriptores';
+type Tab = 'productos' | 'pedidos' | 'reservas' | 'mensajes' | 'cupones' | 'suscriptores';
 
 // Tamaño máximo por imagen al subir (5 MB).
 const MAX_IMG_BYTES = 5 * 1024 * 1024;
@@ -99,6 +109,7 @@ export default function AdminPage() {
   const [cupones, setCupones] = useState<CuponRow[]>([]);
   const [mensajes, setMensajes] = useState<MensajeRow[]>([]);
   const [suscriptores, setSuscriptores] = useState<SuscriptorRow[]>([]);
+  const [reservas, setReservas] = useState<ReservaRow[]>([]);
   // Aviso global: texto + si es de éxito (ok) o de error.
   const [aviso, setAviso] = useState<{ texto: string; ok: boolean } | null>(null);
   const avisarOk = useCallback((texto: string) => setAviso({ texto, ok: true }), []);
@@ -119,18 +130,20 @@ export default function AdminPage() {
 
   const cargarTodo = useCallback(async () => {
     try {
-      const [rp, rpe, rc, rm, rs] = await Promise.all([
+      const [rp, rpe, rc, rm, rs, rr] = await Promise.all([
         fetch('/api/admin/productos', { headers: headers() }),
         fetch('/api/admin/pedidos', { headers: headers() }),
         fetch('/api/admin/cupones', { headers: headers() }),
         fetch('/api/admin/mensajes', { headers: headers() }),
         fetch('/api/admin/suscriptores', { headers: headers() }),
+        fetch('/api/admin/reservas', { headers: headers() }),
       ]);
       if (rp.ok) setProductos((await rp.json()).productos ?? []);
       if (rpe.ok) setPedidos((await rpe.json()).pedidos ?? []);
       if (rc.ok) setCupones((await rc.json()).cupones ?? []);
       if (rm.ok) setMensajes((await rm.json()).mensajes ?? []);
       if (rs.ok) setSuscriptores((await rs.json()).suscriptores ?? []);
+      if (rr.ok) setReservas((await rr.json()).reservas ?? []);
     } catch {
       avisarError('No se pudieron cargar los datos.');
     }
@@ -348,6 +361,23 @@ export default function AdminPage() {
     }
   }
 
+  async function cambiarEstadoReserva(r: ReservaRow, estado: string) {
+    try {
+      const res = await fetch('/api/admin/reservas', {
+        method: 'PATCH',
+        headers: headers(),
+        body: JSON.stringify({ id: r.id, estado }),
+      });
+      if (!res.ok) {
+        avisarError('No se pudo cambiar el estado de la reserva.');
+        return;
+      }
+      setReservas((prev) => prev.map((x) => (x.id === r.id ? { ...x, estado } : x)));
+    } catch {
+      avisarError('No se pudo cambiar el estado de la reserva.');
+    }
+  }
+
   async function cambiarEstadoSuscriptor(s: SuscriptorRow) {
     try {
       const res = await fetch('/api/admin/suscriptores', {
@@ -527,7 +557,7 @@ export default function AdminPage() {
       </header>
 
       <nav className="admin-tabs">
-        {(['productos', 'pedidos', 'mensajes', 'cupones', 'suscriptores'] as Tab[]).map((t) => {
+        {(['productos', 'pedidos', 'reservas', 'mensajes', 'cupones', 'suscriptores'] as Tab[]).map((t) => {
           const sinLeer = t === 'mensajes' ? mensajes.filter((m) => !m.leido).length : 0;
           return (
             <button
@@ -952,6 +982,78 @@ export default function AdminPage() {
         </section>
       )}
 
+      {tab === 'reservas' && (
+        <section className="admin-seccion">
+          <div className="admin-seccion-head">
+            <h2 className="admin-h2">Reservas</h2>
+          </div>
+
+          <p className="admin-nota">
+            El reembolso se hace desde el panel de MercadoPago; acá sólo queda el
+            registro. &quot;Avisada&quot; = ya le escribiste que volvió a entrar.
+          </p>
+
+          <div className="admin-tabla-wrap">
+            <table className="admin-tabla">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Prenda</th>
+                  <th>Email</th>
+                  <th>Seña</th>
+                  <th>Estado</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reservas.map((r) => (
+                  <tr key={r.id}>
+                    <td data-label="Fecha">
+                      {new Date(r.created_at).toLocaleDateString('es-AR')}
+                    </td>
+                    <td data-label="Prenda">{r.producto_nombre ?? '—'}</td>
+                    <td data-label="Email">{r.email}</td>
+                    <td data-label="Seña">${(r.monto ?? 0).toLocaleString('es-AR')}</td>
+                    <td data-label="Estado">
+                      <span className={`admin-pill ${estadoReservaClase(r.estado)}`}>
+                        {r.estado}
+                      </span>
+                    </td>
+                    <td data-label="Acciones">
+                      <div className="admin-acciones-col">
+                        {r.estado === 'pagada' && (
+                          <button
+                            className="admin-link"
+                            onClick={() => cambiarEstadoReserva(r, 'avisada')}
+                          >
+                            Marcar avisada
+                          </button>
+                        )}
+                        {(r.estado === 'pagada' || r.estado === 'avisada') && (
+                          <button
+                            className="admin-link"
+                            onClick={() => cambiarEstadoReserva(r, 'devuelta')}
+                          >
+                            Marcar devuelta
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {reservas.length === 0 && (
+                  <tr>
+                    <td className="admin-vacio" colSpan={6}>
+                      Todavía no hay reservas.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       {tab === 'suscriptores' && (
         <section className="admin-seccion">
           <div className="admin-seccion-head">
@@ -1012,6 +1114,13 @@ export default function AdminPage() {
       )}
     </main>
   );
+}
+
+function estadoReservaClase(estado: string): string {
+  if (estado === 'pagada') return 'ok';
+  if (estado === 'pendiente') return 'pend';
+  if (estado === 'devuelta') return 'off';
+  return '';
 }
 
 function estadoClase(estado: string | null): string {

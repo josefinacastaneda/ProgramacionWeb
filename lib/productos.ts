@@ -63,9 +63,46 @@ export function formatearPrecio(precio: number): string {
   return '$' + precio.toLocaleString('es-AR');
 }
 
+// Seña que se paga para reservar una prenda sin stock. Después se descuenta
+// del precio final.
+export const MONTO_RESERVA = 10000;
+
+// Una prenda está sin stock cuando no queda ni una unidad en ningún talle.
+// Si no tiene el objeto `stock` cargado, asumimos que SÍ hay stock: es el
+// comportamiento que había antes y no queremos bloquear ventas por un dato
+// que falta.
+export function sinStock(p: Producto): boolean {
+  const stock = p.stock;
+  if (!stock || Object.keys(stock).length === 0) return false;
+  return Object.values(stock).every((n) => (Number(n) || 0) <= 0);
+}
+
 export function filtrarPorCategoria(productos: Producto[], categoria: Categoria): Producto[] {
   if (categoria === 'todos') return productos;
-  return productos.filter((p) => p.categoria === categoria);
+  // Insensible a mayúsculas: la categoría se escribe a mano en el panel, así
+  // que "Pantalones" y "pantalones" tienen que ser lo mismo.
+  const buscada = categoria.trim().toLowerCase();
+  return productos.filter((p) => (p.categoria ?? '').trim().toLowerCase() === buscada);
+}
+
+// Construye la lista de filtros a partir de las categorías que REALMENTE
+// existen entre los productos dados. Nada hardcodeado: si se carga una
+// categoría nueva en el panel, aparece sola.
+export function categoriasDe(productos: Producto[]): { label: string; value: string }[] {
+  const vistas = new Map<string, string>();
+  for (const p of productos) {
+    const crudo = (p.categoria ?? '').trim();
+    if (!crudo) continue;
+    const value = crudo.toLowerCase();
+    // Nos quedamos con la primera forma escrita, capitalizada para mostrar.
+    if (!vistas.has(value)) {
+      vistas.set(value, crudo.charAt(0).toUpperCase() + crudo.slice(1));
+    }
+  }
+  const ordenadas = [...vistas.entries()]
+    .sort((a, b) => a[1].localeCompare(b[1], 'es'))
+    .map(([value, label]) => ({ label, value }));
+  return [{ label: 'Todos', value: 'todos' }, ...ordenadas];
 }
 
 export function ordenarPorPrecio(productos: Producto[], orden: '' | 'asc' | 'desc'): Producto[] {

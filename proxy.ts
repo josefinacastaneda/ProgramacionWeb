@@ -15,6 +15,8 @@ const REGLAS: Regla[] = [
   { test: (p) => p === '/api/webhook', limite: 60, ventanaMs: 60_000 },
   // Creación de preferencias de pago.
   { test: (p) => p === '/api/create-preference', limite: 20, ventanaMs: 60_000 },
+  // Reservas de prendas sin stock: también crea preferencias en MercadoPago.
+  { test: (p) => p === '/api/reservar', limite: 10, ventanaMs: 60_000 },
   // Login y API del panel admin: el objetivo principal es frenar fuerza bruta.
   { test: (p) => p === '/api/admin/auth', limite: 10, ventanaMs: 60_000 },
   { test: (p) => p.startsWith('/api/admin/'), limite: 60, ventanaMs: 60_000 },

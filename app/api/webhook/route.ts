@@ -84,6 +84,83 @@ async function avisarCompra(opts: {
   });
 }
 
+// Marca una reserva como pagada. Es idempotente por dos vías: primero busca
+// si el pago ya está registrado, y además `reservas.mp_payment_id` tiene un
+// UNIQUE (migración 008), así que dos webhooks simultáneos no pueden duplicar.
+async function procesarReserva(
+  paymentId: string,
+  estado: string,
+  meta: { producto_id?: string; producto_nombre?: string; email?: string },
+) {
+  const { data: yaEsta } = await supabaseAdmin
+    .from('reservas')
+    .select('id')
+    .eq('mp_payment_id', paymentId)
+    .maybeSingle();
+  if (yaEsta) {
+    return NextResponse.json({ ok: true, reserva: true, duplicado: true });
+  }
+
+  if (estado !== 'approved') {
+    // Todavía no se pagó: la fila pendiente que creó /api/reservar alcanza.
+    return NextResponse.json({ ok: true, reserva: true, estado });
+  }
+
+  // Completamos la fila pendiente de esta persona para este producto. Si no
+  // existe (por ejemplo si falló el insert al crear el link), la creamos.
+  const { data: pendiente } = await supabaseAdmin
+    .from('reservas')
+    .select('id')
+    .eq('producto_id', meta.producto_id ?? '')
+    .eq('email', meta.email ?? '')
+    .eq('estado', 'pendiente')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (pendiente) {
+    const { error } = await supabaseAdmin
+      .from('reservas')
+      .update({ estado: 'pagada', mp_payment_id: paymentId })
+      .eq('id', pendiente.id);
+    if (error && error.code !== '23505') {
+      console.error('Webhook: no se pudo marcar la reserva como pagada', error.message);
+      return NextResponse.json({ error: 'No se pudo guardar la reserva' }, { status: 500 });
+    }
+  } else {
+    const { error } = await supabaseAdmin.from('reservas').insert({
+      producto_id: meta.producto_id ?? null,
+      producto_nombre: meta.producto_nombre ?? null,
+      email: meta.email ?? '',
+      estado: 'pagada',
+      mp_payment_id: paymentId,
+    });
+    if (error && error.code !== '23505') {
+      console.error('Webhook: no se pudo crear la reserva pagada', error.message);
+      return NextResponse.json({ error: 'No se pudo guardar la reserva' }, { status: 500 });
+    }
+  }
+
+  // Aviso interno para que Josefina sepa que entró una reserva.
+  try {
+    await enviarAviso({
+      subject: 'Nueva reserva en FINALOOK',
+      html: `
+        <div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:560px;margin:0 auto">
+          <h1 style="font-size:20px">Nueva reserva</h1>
+          <p><strong>Prenda:</strong> ${meta.producto_nombre ?? meta.producto_id ?? 'Sin dato'}</p>
+          <p><strong>Email:</strong> ${meta.email ?? 'Sin dato'}</p>
+          <p><strong>Pago:</strong> #${paymentId}</p>
+        </div>`,
+      replyTo: meta.email,
+    });
+  } catch (err) {
+    console.error('Webhook: fallo el aviso de reserva', (err as Error).message);
+  }
+
+  return NextResponse.json({ ok: true, reserva: true, estado: 'pagada' });
+}
+
 // MercadoPago manda el id del pago de varias formas según el evento.
 function extraerPaymentId(req: NextRequest, body: Record<string, unknown>): string | null {
   const url = req.nextUrl;
@@ -187,12 +264,24 @@ export async function POST(req: NextRequest) {
 
   const estado = payment.status ?? 'unknown'; // approved | rejected | pending | ...
   const metadata = (payment.metadata ?? {}) as {
+    tipo?: string;
     compras?: Compra[];
     comprador?: Record<string, string>;
     pais?: string;
     entrega?: string;
     cupon?: string | null;
+    producto_id?: string;
+    producto_nombre?: string;
+    email?: string;
   };
+
+  // Las reservas de prendas sin stock son un flujo aparte: no generan pedido,
+  // no descuentan stock y no tocan cupones. Se atienden acá y se corta, para
+  // no rozar el camino de las compras normales.
+  if (metadata.tipo === 'reserva') {
+    return await procesarReserva(String(paymentId), estado, metadata);
+  }
+
   const compras = Array.isArray(metadata.compras) ? metadata.compras : [];
   const comprador = metadata.comprador ?? {};
 
