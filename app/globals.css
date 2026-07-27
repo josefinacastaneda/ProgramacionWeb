@@ -421,21 +421,31 @@ nav {
   will-change: transform;
 }
 .toggle-ovalo.es-day .toggle-perilla { transform: translateX(100%); }
+/* En 'todo' no hay lado activo: la perilla se desvanece. */
+.toggle-ovalo.es-todo .toggle-perilla { opacity: 0; }
 
 .toggle-lado {
   position: relative; z-index: 1;
   display: flex; align-items: center; justify-content: center;
   gap: 0.55rem;
+  height: 100%;
+  background: none; border: none;
+  border-radius: 999px;
+  font-family: var(--font-body);
   font-size: 0.62rem; letter-spacing: 0.3em; text-transform: uppercase;
   transition: color 0.7s cubic-bezier(0.4, 0, 0.2, 1),
               opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
+.toggle-lado:focus-visible { outline: 2px solid var(--vino); outline-offset: 2px; }
 .toggle-icono { width: 17px; height: 17px; }
 /* El lado activo es el que queda sobre la perilla oscura. */
 .toggle-ovalo.es-night .toggle-lado-night { color: var(--crudo); opacity: 1; }
 .toggle-ovalo.es-night .toggle-lado-day   { color: var(--tinta); opacity: 0.45; }
 .toggle-ovalo.es-day   .toggle-lado-night { color: var(--tinta); opacity: 0.45; }
 .toggle-ovalo.es-day   .toggle-lado-day   { color: var(--crudo); opacity: 1; }
+/* Sin lado activo: los dos legibles, ninguno destacado. */
+.toggle-ovalo.es-todo .toggle-lado { color: var(--tinta); opacity: 0.75; }
+.toggle-ovalo.es-todo .toggle-lado:hover { opacity: 1; }
 
 .coleccion-vertodo {
   background: none; border: none;
@@ -467,6 +477,48 @@ nav {
   --tinta-dim: rgba(236, 228, 214, 0.62);
   --tinta-tenue: rgba(236, 228, 214, 0.12);
   --camel-texto: #C6AF8E;
+}
+
+/* ── CARTEL DE DROP ─────────────────────────────────────────
+   Encabeza cada colección. En "Ver todo" aparece uno por drop, así se ve
+   dónde termina la noche y empieza el día. */
+.drop-cartel {
+  text-align: center;
+  padding: 1rem 0 3.5rem;
+}
+.drop-cartel-titulo {
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 4.5vw, 2.8rem);
+  font-weight: 300;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+.drop-cartel-r {
+  font-size: 0.34em;
+  letter-spacing: 0;
+  vertical-align: super;
+  margin-left: 0.25em;
+  opacity: 0.65;
+}
+.drop-cartel-sub {
+  margin-top: 0.9rem;
+  font-size: 0.56rem;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--camel-texto);
+}
+
+/* Cierre de cada colección. */
+.drop-envios {
+  margin-top: 4rem;
+  padding-top: 2.2rem;
+  border-top: 1px solid var(--crudo-borde);
+  text-align: center;
+  font-size: 0.62rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--tinta-dim);
 }
 
 /* Estado vacío: sin texto a propósito, el copy lo define Josefina. */
@@ -594,7 +646,20 @@ nav {
   grid-template-columns: minmax(0, 480px);
   justify-content: center;
 }
-.producto-card { cursor: pointer; animation: fadeUpIn 0.5s ease both; }
+/* Fade sutil al aparecer.
+   IMPORTANTE: la card es VISIBLE por defecto. El fade se activa recién cuando
+   el JS agrega .grilla-anim a la grilla, o sea cuando hay observer andando
+   para volver a encenderlas. Si el JS no corre, o falla, o el observer no
+   dispara, las prendas se ven igual. Nunca al revés: una prenda invisible es
+   peor que una prenda sin animación. */
+.producto-card { cursor: pointer; }
+.productos-grid.grilla-anim .producto-card {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.productos-grid.grilla-anim .producto-card.visible { opacity: 1; transform: none; }
 .producto-card.oculto { display: none; }
 
 /* Imagen de producto */
@@ -2130,6 +2195,13 @@ select.checkout-input {
   .toggle-perilla,
   .toggle-lado,
   .coleccion-mundo { transition: none !important; }
+
+  /* Las prendas se muestran de una, sin fade ni desplazamiento. Importa que
+     queden VISIBLES: nunca dejar producto invisible por una animación. */
+  .producto-card {
+    opacity: 1 !important;
+    transform: none !important;
+  }
 
   /* El glow del hero se apaga: es puramente decorativo. */
   .hero-titulo { filter: none !important; }

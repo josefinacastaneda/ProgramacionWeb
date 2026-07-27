@@ -1,13 +1,16 @@
 'use client';
 
-// El "óvalo": switch deslizable entre los dos mundos de la colección.
-//   Night → Drop 01 · Night Out
-//   Day   → Drop 02 · Cruddo
+// El "óvalo": filtro de la colección por mundo.
+//   Night → Drop - 01 : NIGHT OUT
+//   Day   → Drop - 02 : CRUDDO
+//   todo  → los dos drops en un solo scroll (de la noche al día)
 //
-// Es un <button role="switch"> real: funciona con teclado (Enter/Espacio) y
-// anuncia su estado. Los íconos son SVG de línea dibujados a mano, sin emojis.
+// Funciona como un filtro más: tocar el lado que YA está activo lo deselecciona
+// y vuelve a la colección completa. Por eso son dos botones reales (uno por
+// lado) y no un switch de dos estados: hay tres estados posibles.
 
 export type Mundo = 'night' | 'day';
+export type SeleccionMundo = Mundo | 'todo';
 
 function IconoLuna() {
   return (
@@ -45,43 +48,44 @@ function IconoSol() {
 }
 
 export default function ToggleMundo({
-  mundo,
-  onCambiar,
-  id,
+  seleccion,
+  onElegir,
 }: {
-  mundo: Mundo;
-  onCambiar: (m: Mundo) => void;
-  id?: string;
+  seleccion: SeleccionMundo;
+  onElegir: (lado: Mundo) => void;
 }) {
-  const esNoche = mundo === 'night';
   return (
     <div className="toggle-wrap">
-      <button
-        id={id}
-        type="button"
-        role="switch"
-        aria-checked={!esNoche}
-        aria-label={
-          esNoche
-            ? 'Mundo Night, Drop 01. Cambiar a Day, Drop 02'
-            : 'Mundo Day, Drop 02. Cambiar a Night, Drop 01'
-        }
-        className={`toggle-ovalo${esNoche ? ' es-night' : ' es-day'}`}
-        onClick={() => onCambiar(esNoche ? 'day' : 'night')}
+      <div
+        className={`toggle-ovalo es-${seleccion}`}
+        role="group"
+        aria-label="Filtrar la colección por drop"
       >
-        {/* La perilla que se desliza. */}
+        {/* Perilla: se corre al lado activo. Con "todo" se desvanece. */}
         <span className="toggle-perilla" aria-hidden="true" />
 
-        <span className="toggle-lado toggle-lado-night" aria-hidden="true">
+        <button
+          type="button"
+          className="toggle-lado toggle-lado-night"
+          aria-pressed={seleccion === 'night'}
+          aria-label="Night, Drop 01 Night Out"
+          onClick={() => onElegir('night')}
+        >
           <IconoLuna />
           <span className="toggle-texto">Night</span>
-        </span>
+        </button>
 
-        <span className="toggle-lado toggle-lado-day" aria-hidden="true">
+        <button
+          type="button"
+          className="toggle-lado toggle-lado-day"
+          aria-pressed={seleccion === 'day'}
+          aria-label="Day, Drop 02 Cruddo"
+          onClick={() => onElegir('day')}
+        >
           <span className="toggle-texto">Day</span>
           <IconoSol />
-        </span>
-      </button>
+        </button>
+      </div>
     </div>
   );
 }

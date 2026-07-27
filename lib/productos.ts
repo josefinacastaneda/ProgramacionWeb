@@ -13,9 +13,14 @@ export interface ColorVariante {
 // '01' → Night Out (noche), '02' → Cruddo (día).
 export type Drop = '01' | '02';
 
-export const DROPS: { id: Drop; etiqueta: string; mundo: 'night' | 'day' }[] = [
-  { id: '01', etiqueta: 'Drop 01 · Night Out', mundo: 'night' },
-  { id: '02', etiqueta: 'Drop 02 · Cruddo', mundo: 'day' },
+export const DROPS: {
+  id: Drop;
+  numero: string;
+  nombre: string;
+  mundo: 'night' | 'day';
+}[] = [
+  { id: '01', numero: 'Drop - 01', nombre: 'NIGHT OUT', mundo: 'night' },
+  { id: '02', numero: 'Drop - 02', nombre: 'CRUDDO', mundo: 'day' },
 ];
 
 export interface Producto {

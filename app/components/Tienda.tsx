@@ -24,12 +24,9 @@ import {
   validarComprador,
   MSG_VALIDACION,
 } from '@/lib/validaciones';
-import ToggleMundo, { type Mundo } from './ToggleMundo';
+import ToggleMundo, { type Mundo, type SeleccionMundo } from './ToggleMundo';
 
 const NOMBRE_TIENDA = process.env.NEXT_PUBLIC_NOMBRE_TIENDA || 'FINALOOK STUDIO';
-// Pocas palabras: el reveal palabra por palabra las va encendiendo al scrollear.
-const NOSOTROS_TEXTO = 'Negro. Denim. Noche.';
-
 // Mínimo de caracteres para el mensaje del formulario de contacto.
 const MENSAJE_MIN = 10;
 
@@ -109,11 +106,10 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ── Estado general ──
   const [filtroActivo, setFiltroActivo] = useState('todos');
 
-  // ── Mundo de la colección (el óvalo) ──
-  // 'night' → Drop 01 · Night Out, 'day' → Drop 02 · Cruddo.
-  const [mundo, setMundo] = useState<Mundo>('night');
-  // "Ver todo": los dos drops en un solo scroll, de la noche al día.
-  const [verTodo, setVerTodo] = useState(false);
+  // ── Filtro de colección por drop (el óvalo) ──
+  // 'night' → sólo Drop 01, 'day' → sólo Drop 02, 'todo' → los dos en un
+  // solo scroll. Arranca en 'todo' para que se vea toda la colección.
+  const [seleccion, setSeleccion] = useState<SeleccionMundo>('todo');
   const [sortActivo, setSortActivo] = useState<Orden>('');
   const [navColCerrada, setNavColCerrada] = useState(false);
   const [vistaTres, setVistaTres] = useState(true);
@@ -206,7 +202,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
   // ── Refs ──
   const heroTituloRef = useRef<HTMLHeadingElement>(null);
   const heroContenidoRef = useRef<HTMLDivElement>(null);
-  const nosotrosRef = useRef<HTMLParagraphElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const coleccionRef = useRef<HTMLElement>(null);
@@ -280,25 +275,6 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
       window.removeEventListener('resize', onScroll);
       cancelAnimationFrame(raf);
     };
-  }, []);
-
-  // ────────────────────────────────────────────────
-  // NOSOTROS word-by-word reveal
-  // ────────────────────────────────────────────────
-  useEffect(() => {
-    const container = nosotrosRef.current;
-    if (!container) return;
-    const words = Array.from(container.querySelectorAll<HTMLElement>('.reveal-word'));
-    const obs = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) entry.target.classList.add('visible');
-        });
-      },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0 },
-    );
-    words.forEach((w) => obs.observe(w));
-    return () => obs.disconnect();
   }, []);
 
   // ────────────────────────────────────────────────
@@ -386,6 +362,45 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     secciones.forEach((s) => obs.observe(s));
     return () => obs.disconnect();
   }, []);
+
+  // ────────────────────────────────────────────────
+  // FADE DE LAS PRENDAS AL APARECER
+  // Va aparte del reveal de secciones: la grilla se vuelve a montar cada vez
+  // que cambia el drop, la categoría o el orden, y el observer de secciones
+  // corre una sola vez. No vería esas cards nuevas y se quedarían en opacity 0,
+  // o sea invisibles. Por eso este efecto depende de lo que cambia la lista.
+  // ────────────────────────────────────────────────
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const cards = Array.from(root.querySelectorAll<HTMLElement>('.producto-card'));
+    // Sin IntersectionObserver no activamos el fade: las cards ya son visibles
+    // por CSS, que es el estado por defecto.
+    if (typeof IntersectionObserver === 'undefined') return;
+
+    // Recién acá "armamos" el fade: la grilla arranca visible y sólo se apaga
+    // cuando ya existe el observer que la va a volver a encender.
+    const grillas = Array.from(root.querySelectorAll<HTMLElement>('.productos-grid'));
+    grillas.forEach((g) => g.classList.add('grilla-anim'));
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            obs.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.05 },
+    );
+    cards.forEach((c) => obs.observe(c));
+    return () => {
+      obs.disconnect();
+      // Al desarmar dejamos la grilla en su estado visible por defecto.
+      grillas.forEach((g) => g.classList.remove('grilla-anim'));
+    };
+  }, [seleccion, filtroActivo, sortActivo, productos]);
 
   // ────────────────────────────────────────────────
   // Persistencia de carrito y favoritos (localStorage)
@@ -975,12 +990,14 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     );
   }
 
-  // Cambiar de mundo desde cualquiera de los óvalos. Al elegir uno concreto
-  // salimos de "Ver todo", que es una vista aparte.
-  function cambiarMundo(m: Mundo) {
-    setMundo(m);
-    setVerTodo(false);
+  // El óvalo funciona como un filtro más: tocar el lado que ya está activo
+  // lo deselecciona y vuelve a la colección completa.
+  function elegirLado(lado: Mundo) {
+    setSeleccion((actual) => (actual === lado ? 'todo' : lado));
   }
+
+  const verTodo = seleccion === 'todo';
+  const dropsVisibles = verTodo ? DROPS : DROPS.filter((d) => d.mundo === seleccion);
   const categorias: { label: string; value: string }[] = [
     { label: 'Todos', value: 'todos' },
     { label: 'Tops', value: 'tops' },
@@ -1161,7 +1178,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               </div>
             </li>
             <li className="nav-item">
-              <a href="#nosotros">Nosotros</a>
+              <a href="/nosotros">Nosotros</a>
             </li>
             <li className="nav-item">
               <a href="#contacto">Contacto</a>
@@ -1227,7 +1244,7 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
               {logoMain}
               <span className="hero-studio-sub">{logoStudio}</span>
             </h1>
-            <p className="hero-tagline">night out</p>
+            <p className="hero-tagline">Buenos Aires — 2026</p>
           </div>
 
           <div className="hero-scroll-indicator" aria-hidden="true">
@@ -1235,33 +1252,9 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             <span className="scroll-lbl">Scroll</span>
           </div>
         </section>
-
-        {/* ═══ NOSOTROS ═══ */}
-        <section className="nosotros-section reveal-section" id="nosotros" aria-labelledby="nosotros-titulo">
-          <div className="nosotros-inner">
-            <span className="nosotros-label">Drop 01</span>
-            <p className="nosotros-texto-animado" ref={nosotrosRef} aria-label="Texto sobre la marca">
-              {NOSOTROS_TEXTO.split(/\s+/).map((palabra, i) => (
-                <span key={i} className="reveal-word" style={{ transitionDelay: `${i * 0.12}s` }}>
-                  {palabra}{' '}
-                </span>
-              ))}
-            </p>
-            <p className="nosotros-firma">Buenos Aires — 2026</p>
-          </div>
-        </section>
-
-        {/* ═══ COLECCIÓN ═══ */}
         {/* ═══ EL ÓVALO — grande y centrado, después del hero ═══ */}
         <div className="toggle-zona">
-          <ToggleMundo mundo={mundo} onCambiar={cambiarMundo} />
-          <button
-            className="coleccion-vertodo"
-            onClick={() => setVerTodo((v) => !v)}
-            aria-pressed={verTodo}
-          >
-            {verTodo ? 'Volver' : 'Ver todo'}
-          </button>
+          <ToggleMundo seleccion={seleccion} onElegir={elegirLado} />
         </div>
 
         {/* ═══ COLECCIÓN ═══ */}
@@ -1275,16 +1268,15 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
             Colección
           </h2>
 
-          {(verTodo ? DROPS : DROPS.filter((d) => d.mundo === mundo)).map((d) => (
-            <div
-              key={d.id}
-              className="coleccion-mundo reveal-section"
-              data-mundo={d.mundo}
-            >
+          {dropsVisibles.map((d) => (
+            <div key={d.id} className="coleccion-mundo" data-mundo={d.mundo}>
               <div className="coleccion-section">
-                <div className="seccion-header">
-                  <h3 className="seccion-titulo">{d.etiqueta}</h3>
-                  <div className="seccion-linea" aria-hidden="true" />
+                <div className="drop-cartel">
+                  <p className="drop-cartel-titulo">
+                    {d.numero} : {d.nombre}
+                    <sup className="drop-cartel-r" aria-hidden="true">®</sup>
+                  </p>
+                  <p className="drop-cartel-sub">curated denim pieces</p>
                 </div>
 
                 <div className="toolbar" role="group" aria-label="Opciones de la colección">
@@ -1346,9 +1338,13 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
                 {renderGrilla(listaDeDrop(d.id))}
 
-                {/* El óvalo se repite al final de cada drop. */}
+                {/* Cierre de la colección: envíos + el óvalo otra vez. */}
+                <p className="drop-envios">
+                  Envíos a todo el país y al exterior.
+                </p>
+
                 <div className="toggle-zona toggle-zona-fin">
-                  <ToggleMundo mundo={d.mundo} onCambiar={cambiarMundo} />
+                  <ToggleMundo seleccion={seleccion} onElegir={elegirLado} />
                 </div>
               </div>
             </div>
