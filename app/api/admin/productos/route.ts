@@ -17,6 +17,7 @@ interface ProductoBody {
   badge?: string | null;
   activo?: boolean;
   imagenes?: string[];
+  drop?: string;
 }
 
 function noAutorizado() {
@@ -36,6 +37,9 @@ function filaDesdeBody(b: ProductoBody) {
     badge: b.badge?.trim() ? b.badge.trim() : null,
     activo: b.activo ?? true,
     imagenes: Array.isArray(b.imagenes) ? b.imagenes : [],
+    // Sólo '01' o '02'; cualquier otra cosa cae en '01' (igual que el check
+    // de la base) para que la prenda no quede fuera de las dos vistas.
+    drop: b.drop === '02' ? '02' : '01',
   };
 }
 

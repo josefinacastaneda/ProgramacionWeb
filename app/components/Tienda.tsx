@@ -5,8 +5,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   type Producto,
   type ColorVariante,
+  type Drop,
+  DROPS,
   formatearPrecio,
   filtrarPorCategoria,
+  filtrarPorDrop,
   ordenarPorPrecio,
   buscarProductos,
 } from '@/lib/productos';
@@ -21,6 +24,7 @@ import {
   validarComprador,
   MSG_VALIDACION,
 } from '@/lib/validaciones';
+import ToggleMundo, { type Mundo } from './ToggleMundo';
 
 const NOMBRE_TIENDA = process.env.NEXT_PUBLIC_NOMBRE_TIENDA || 'FINALOOK STUDIO';
 // Pocas palabras: el reveal palabra por palabra las va encendiendo al scrollear.
@@ -104,6 +108,12 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
 
   // ── Estado general ──
   const [filtroActivo, setFiltroActivo] = useState('todos');
+
+  // ── Mundo de la colección (el óvalo) ──
+  // 'night' → Drop 01 · Night Out, 'day' → Drop 02 · Cruddo.
+  const [mundo, setMundo] = useState<Mundo>('night');
+  // "Ver todo": los dos drops en un solo scroll, de la noche al día.
+  const [verTodo, setVerTodo] = useState(false);
   const [sortActivo, setSortActivo] = useState<Orden>('');
   const [navColCerrada, setNavColCerrada] = useState(false);
   const [vistaTres, setVistaTres] = useState(true);
@@ -955,14 +965,160 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
     }
   }
 
-  // ── Lista de productos visible (filtro + orden) ──
-  const listaVisible = ordenarPorPrecio(filtrarPorCategoria(productos, filtroActivo), sortActivo);
+  // ── Lista visible de un drop (drop → categoría → orden) ──
+  // El drop es el eje principal; la categoría quedó como filtro secundario
+  // porque el menú del nav sigue dependiendo de ella.
+  function listaDeDrop(drop: Drop) {
+    return ordenarPorPrecio(
+      filtrarPorCategoria(filtrarPorDrop(productos, drop), filtroActivo),
+      sortActivo,
+    );
+  }
+
+  // Cambiar de mundo desde cualquiera de los óvalos. Al elegir uno concreto
+  // salimos de "Ver todo", que es una vista aparte.
+  function cambiarMundo(m: Mundo) {
+    setMundo(m);
+    setVerTodo(false);
+  }
   const categorias: { label: string; value: string }[] = [
     { label: 'Todos', value: 'todos' },
     { label: 'Tops', value: 'tops' },
     { label: 'Vestidos', value: 'vestidos' },
     { label: 'Camisas', value: 'camisas' },
   ];
+
+  // Grilla de prendas. Se usa igual en las tres vistas (Night, Day y Ver
+  // todo), así el modal, la regla de talle y el carrito son exactamente los
+  // mismos en todas.
+  function renderGrilla(lista: Producto[]) {
+    return (
+          <div className={`productos-grid${vistaTres ? '' : ' vista-uno'}`} aria-live="polite">
+            {lista.length === 0 ? (
+              <div className="coleccion-vacia">
+                {/* Vacío a propósito: el copy lo define Josefina. */}
+                <span className="sr-only">Sin prendas.</span>
+              </div>
+            ) : (
+              lista.map((prod) => {
+                const idx = cardImgIdx[prod.id] || 0;
+                const fav = esFavorito(prod.id);
+                return (
+                  <article className="producto-card" data-id={prod.id} aria-label={prod.nombre} key={prod.id}>
+                    <div
+                      className="producto-img-wrap"
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`Ver ${prod.nombre} en pantalla completa`}
+                      onClick={() => abrirModal(prod)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') abrirModal(prod);
+                      }}
+                    >
+                      {prod.imagenes.length > 0 && (
+                        <img
+                          src={prod.imagenes[idx]}
+                          alt={`${prod.nombre} — ${prod.categoria} de la colección FINALOOK`}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fb) fb.style.display = 'flex';
+                          }}
+                          onLoad={(e) => {
+                            e.currentTarget.style.display = 'block';
+                            const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                            if (fb) fb.style.display = 'none';
+                          }}
+                        />
+                      )}
+                      <div
+                        className="img-fallback"
+                        style={prod.imagenes.length === 0 ? { display: 'flex' } : undefined}
+                        aria-hidden="true"
+                      >
+                        {nombrePlaceholder(prod.nombre)}
+                      </div>
+
+                      {prod.badge && <span className="producto-badge">{prod.badge}</span>}
+
+                      {prod.imagenes.length > 1 && (
+                        <>
+                          <button
+                            className="img-arrow img-arrow-prev"
+                            aria-label="Foto anterior"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cambiarImgCard(prod, -1);
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <polyline points="15 18 9 12 15 6" />
+                            </svg>
+                          </button>
+                          <button
+                            className="img-arrow img-arrow-next"
+                            aria-label="Foto siguiente"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              cambiarImgCard(prod, 1);
+                            }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                              <polyline points="9 18 15 12 9 6" />
+                            </svg>
+                          </button>
+                        </>
+                      )}
+
+                      <button
+                        className={`btn-fav-card${fav ? ' favorito' : ''}`}
+                        aria-label={`Agregar ${prod.nombre} a favoritos`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleFavoritoCard(prod);
+                        }}
+                      >
+                        <HeartIcon filled={fav} />
+                      </button>
+
+                      {prod.imagenes.length > 1 && (
+                        <div className="galeria-dots" aria-hidden="true">
+                          {prod.imagenes.map((_, i) => (
+                            <button
+                              key={i}
+                              className={`galeria-dot${i === idx ? ' activo' : ''}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setImgCard(prod, i);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {prod.colores && (
+                        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '4px', zIndex: 3 }}>
+                          {prod.colores.map((c) => (
+                            <span key={c.nombre} className="color-preview-dot" style={{ background: c.hex }} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="producto-info" onClick={() => abrirModal(prod)}>
+                      <p className="producto-cat">{prod.categoria}</p>
+                      <h3 className="producto-nombre">{prod.nombre}</h3>
+                      <div className="producto-footer-card">
+                        <span className="producto-precio">{formatearPrecio(prod.precio)}</span>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })
+            )}
+          </div>
+    );
+  }
 
   return (
     <div ref={rootRef}>
@@ -1096,190 +1252,107 @@ export default function Tienda({ productos }: { productos: Producto[] }) {
         </section>
 
         {/* ═══ COLECCIÓN ═══ */}
-        <section className="coleccion-section reveal-section" id="coleccion" ref={coleccionRef} aria-labelledby="coleccion-titulo">
-          <div className="seccion-header">
-            <h2 className="seccion-titulo" id="coleccion-titulo">
-              Colección
-            </h2>
-            <div className="seccion-linea" aria-hidden="true" />
-            <span className="seccion-sub">Curated denim pieces — Buenos Aires</span>
-          </div>
+        {/* ═══ EL ÓVALO — grande y centrado, después del hero ═══ */}
+        <div className="toggle-zona">
+          <ToggleMundo mundo={mundo} onCambiar={cambiarMundo} />
+          <button
+            className="coleccion-vertodo"
+            onClick={() => setVerTodo((v) => !v)}
+            aria-pressed={verTodo}
+          >
+            {verTodo ? 'Volver' : 'Ver todo'}
+          </button>
+        </div>
 
-          <div className="toolbar" role="group" aria-label="Opciones de la colección">
-            <div className="filtros-grupo" role="group" aria-label="Filtrar por categoría">
-              {categorias.map((c) => (
-                <button
-                  key={c.value}
-                  className={`filtro-btn${filtroActivo === c.value ? ' activo' : ''}`}
-                  aria-pressed={filtroActivo === c.value}
-                  onClick={() => setFiltroActivo(c.value)}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
+        {/* ═══ COLECCIÓN ═══ */}
+        <section
+          className={`coleccion-wrap${verTodo ? ' es-vertodo' : ''}`}
+          id="coleccion"
+          ref={coleccionRef}
+          aria-labelledby="coleccion-titulo"
+        >
+          <h2 className="sr-only" id="coleccion-titulo">
+            Colección
+          </h2>
 
-            <div className="toolbar-derecha">
-              <select
-                className="sort-select"
-                aria-label="Ordenar productos"
-                value={sortActivo}
-                onChange={(e) => setSortActivo(e.target.value as Orden)}
-              >
-                <option value="">Ordenar</option>
-                <option value="asc">Precio ↑</option>
-                <option value="desc">Precio ↓</option>
-              </select>
+          {(verTodo ? DROPS : DROPS.filter((d) => d.mundo === mundo)).map((d) => (
+            <div
+              key={d.id}
+              className="coleccion-mundo reveal-section"
+              data-mundo={d.mundo}
+            >
+              <div className="coleccion-section">
+                <div className="seccion-header">
+                  <h3 className="seccion-titulo">{d.etiqueta}</h3>
+                  <div className="seccion-linea" aria-hidden="true" />
+                </div>
 
-              <div className="grid-toggle" role="group" aria-label="Vista de la grilla">
-                <button
-                  className={`grid-toggle-btn${vistaTres ? ' activo' : ''}`}
-                  aria-label="Vista en filas de tres"
-                  aria-pressed={vistaTres}
-                  onClick={() => setVistaTres(true)}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <rect x="2" y="2" width="6" height="6" /><rect x="9" y="2" width="6" height="6" /><rect x="16" y="2" width="6" height="6" />
-                    <rect x="2" y="9" width="6" height="6" /><rect x="9" y="9" width="6" height="6" /><rect x="16" y="9" width="6" height="6" />
-                  </svg>
-                </button>
-                <button
-                  className={`grid-toggle-btn${!vistaTres ? ' activo' : ''}`}
-                  aria-label="Vista de una por fila"
-                  aria-pressed={!vistaTres}
-                  onClick={() => setVistaTres(false)}
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <rect x="2" y="2" width="20" height="9" /><rect x="2" y="13" width="20" height="9" />
-                  </svg>
-                </button>
+                <div className="toolbar" role="group" aria-label="Opciones de la colección">
+                  <div className="filtros-grupo" role="group" aria-label="Filtrar por categoría">
+                    {categorias.map((c) => (
+                      <button
+                        key={c.value}
+                        className={`filtro-btn${filtroActivo === c.value ? ' activo' : ''}`}
+                        aria-pressed={filtroActivo === c.value}
+                        onClick={() => setFiltroActivo(c.value)}
+                      >
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="toolbar-derecha">
+                    <select
+                      className="sort-select"
+                      aria-label="Ordenar productos"
+                      value={sortActivo}
+                      onChange={(e) => setSortActivo(e.target.value as Orden)}
+                    >
+                      <option value="">Ordenar</option>
+                      <option value="asc">Precio ↑</option>
+                      <option value="desc">Precio ↓</option>
+                    </select>
+
+                    <div className="grid-toggle" role="group" aria-label="Vista de la grilla">
+                      <button
+                        className={`grid-toggle-btn${vistaTres ? ' activo' : ''}`}
+                        aria-label="Vista en filas de tres"
+                        aria-pressed={vistaTres}
+                        onClick={() => setVistaTres(true)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="2" y="2" width="6" height="6" />
+                          <rect x="9" y="2" width="6" height="6" />
+                          <rect x="16" y="2" width="6" height="6" />
+                          <rect x="2" y="9" width="6" height="6" />
+                          <rect x="9" y="9" width="6" height="6" />
+                          <rect x="16" y="9" width="6" height="6" />
+                        </svg>
+                      </button>
+                      <button
+                        className={`grid-toggle-btn${vistaTres ? '' : ' activo'}`}
+                        aria-label="Vista de una por fila"
+                        aria-pressed={!vistaTres}
+                        onClick={() => setVistaTres(false)}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <rect x="2" y="3" width="20" height="7" />
+                          <rect x="2" y="14" width="20" height="7" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {renderGrilla(listaDeDrop(d.id))}
+
+                {/* El óvalo se repite al final de cada drop. */}
+                <div className="toggle-zona toggle-zona-fin">
+                  <ToggleMundo mundo={d.mundo} onCambiar={cambiarMundo} />
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className={`productos-grid${vistaTres ? '' : ' vista-uno'}`} aria-live="polite">
-            {listaVisible.length === 0 ? (
-              <p style={{ color: 'var(--tinta-dim)', fontSize: '0.8rem', letterSpacing: '0.1em', padding: '3rem 0' }}>
-                No hay prendas en esta categoría.
-              </p>
-            ) : (
-              listaVisible.map((prod) => {
-                const idx = cardImgIdx[prod.id] || 0;
-                const fav = esFavorito(prod.id);
-                return (
-                  <article className="producto-card" data-id={prod.id} aria-label={prod.nombre} key={prod.id}>
-                    <div
-                      className="producto-img-wrap"
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`Ver ${prod.nombre} en pantalla completa`}
-                      onClick={() => abrirModal(prod)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') abrirModal(prod);
-                      }}
-                    >
-                      {prod.imagenes.length > 0 && (
-                        <img
-                          src={prod.imagenes[idx]}
-                          alt={`${prod.nombre} — ${prod.categoria} de la colección FINALOOK`}
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                            if (fb) fb.style.display = 'flex';
-                          }}
-                          onLoad={(e) => {
-                            e.currentTarget.style.display = 'block';
-                            const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
-                            if (fb) fb.style.display = 'none';
-                          }}
-                        />
-                      )}
-                      <div
-                        className="img-fallback"
-                        style={prod.imagenes.length === 0 ? { display: 'flex' } : undefined}
-                        aria-hidden="true"
-                      >
-                        {nombrePlaceholder(prod.nombre)}
-                      </div>
-
-                      {prod.badge && <span className="producto-badge">{prod.badge}</span>}
-
-                      {prod.imagenes.length > 1 && (
-                        <>
-                          <button
-                            className="img-arrow img-arrow-prev"
-                            aria-label="Foto anterior"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              cambiarImgCard(prod, -1);
-                            }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                              <polyline points="15 18 9 12 15 6" />
-                            </svg>
-                          </button>
-                          <button
-                            className="img-arrow img-arrow-next"
-                            aria-label="Foto siguiente"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              cambiarImgCard(prod, 1);
-                            }}
-                          >
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                              <polyline points="9 18 15 12 9 6" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-
-                      <button
-                        className={`btn-fav-card${fav ? ' favorito' : ''}`}
-                        aria-label={`Agregar ${prod.nombre} a favoritos`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavoritoCard(prod);
-                        }}
-                      >
-                        <HeartIcon filled={fav} />
-                      </button>
-
-                      {prod.imagenes.length > 1 && (
-                        <div className="galeria-dots" aria-hidden="true">
-                          {prod.imagenes.map((_, i) => (
-                            <button
-                              key={i}
-                              className={`galeria-dot${i === idx ? ' activo' : ''}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setImgCard(prod, i);
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-
-                      {prod.colores && (
-                        <div style={{ position: 'absolute', bottom: '2.5rem', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '4px', zIndex: 3 }}>
-                          {prod.colores.map((c) => (
-                            <span key={c.nombre} className="color-preview-dot" style={{ background: c.hex }} />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="producto-info" onClick={() => abrirModal(prod)}>
-                      <p className="producto-cat">{prod.categoria}</p>
-                      <h3 className="producto-nombre">{prod.nombre}</h3>
-                      <div className="producto-footer-card">
-                        <span className="producto-precio">{formatearPrecio(prod.precio)}</span>
-                      </div>
-                    </div>
-                  </article>
-                );
-              })
-            )}
-          </div>
+          ))}
         </section>
 
         {/* ═══ CONTACTO ═══ */}

@@ -9,6 +9,15 @@ export interface ColorVariante {
   imagenes: string[];
 }
 
+// Drop al que pertenece una prenda. Define en qué mundo se muestra:
+// '01' → Night Out (noche), '02' → Cruddo (día).
+export type Drop = '01' | '02';
+
+export const DROPS: { id: Drop; etiqueta: string; mundo: 'night' | 'day' }[] = [
+  { id: '01', etiqueta: 'Drop 01 · Night Out', mundo: 'night' },
+  { id: '02', etiqueta: 'Drop 02 · Cruddo', mundo: 'day' },
+];
+
 export interface Producto {
   id: string;
   nombre: string;
@@ -21,6 +30,19 @@ export interface Producto {
   material: string;
   badge: string | null;
   colores?: ColorVariante[];
+  // Los productos viejos (y productos.json) no lo traen: por eso es opcional
+  // y se normaliza a '01' al leerlos.
+  drop?: Drop;
+}
+
+// Normaliza el drop de un producto. Cualquier valor raro cae en '01' para que
+// la prenda siga siendo visible en algún mundo en vez de desaparecer.
+export function dropDe(p: Producto): Drop {
+  return p.drop === '02' ? '02' : '01';
+}
+
+export function filtrarPorDrop(productos: Producto[], drop: Drop): Producto[] {
+  return productos.filter((p) => dropDe(p) === drop);
 }
 
 export type Categoria = 'todos' | string;

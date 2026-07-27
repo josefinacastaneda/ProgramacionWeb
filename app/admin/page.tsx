@@ -15,6 +15,7 @@ interface ProductoRow {
   badge: string | null;
   activo: boolean;
   imagenes: string[] | null;
+  drop: string | null;
 }
 
 interface PedidoRow {
@@ -69,6 +70,7 @@ interface FormProducto {
   badge: string;
   activo: boolean;
   imagenes: string[];
+  drop: '01' | '02';
 }
 
 const FORM_VACIO: FormProducto = {
@@ -82,6 +84,7 @@ const FORM_VACIO: FormProducto = {
   badge: '',
   activo: true,
   imagenes: [],
+  drop: '01',
 };
 
 export default function AdminPage() {
@@ -178,6 +181,7 @@ export default function AdminPage() {
       badge: p.badge ?? '',
       activo: p.activo,
       imagenes: p.imagenes ?? [],
+      drop: p.drop === '02' ? '02' : '01',
     });
   }
 
@@ -307,6 +311,7 @@ export default function AdminPage() {
       badge: form.badge,
       activo: form.activo,
       imagenes: form.imagenes,
+      drop: form.drop,
     };
     try {
       const editando = !!form.id;
@@ -576,6 +581,19 @@ export default function AdminPage() {
                   />
                 </label>
                 <label className="admin-label">
+                  Drop
+                  <select
+                    className="admin-input"
+                    value={form.drop}
+                    onChange={(e) =>
+                      setForm({ ...form, drop: e.target.value === '02' ? '02' : '01' })
+                    }
+                  >
+                    <option value="01">Drop 01 · Night Out</option>
+                    <option value="02">Drop 02 · Cruddo</option>
+                  </select>
+                </label>
+                <label className="admin-label">
                   Precio (ARS)
                   <input
                     type="number"
@@ -709,6 +727,7 @@ export default function AdminPage() {
               <thead>
                 <tr>
                   <th>Nombre</th>
+                  <th>Drop</th>
                   <th>Precio</th>
                   <th>Stock por talle</th>
                   <th>Estado</th>
@@ -719,6 +738,7 @@ export default function AdminPage() {
                 {productos.map((p) => (
                   <tr key={p.id} className={p.activo ? '' : 'admin-inactivo'}>
                     <td data-label="Nombre">{p.nombre}</td>
+                    <td data-label="Drop">{p.drop === '02' ? '02 · Cruddo' : '01 · Night Out'}</td>
                     <td data-label="Precio">${p.precio.toLocaleString('es-AR')}</td>
                     <td data-label="Stock">
                       {Object.entries(p.stock ?? {})

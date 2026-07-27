@@ -31,6 +31,7 @@ async function obtenerProductos(): Promise<Producto[]> {
       descripcion: p.descripcion ?? "",
       material: p.material ?? "",
       badge: p.badge ?? null,
+      drop: p.drop === "02" ? "02" : "01",
     }));
   } catch (e) {
     console.warn("Fallo al leer Supabase, uso JSON local:", (e as Error).message);
